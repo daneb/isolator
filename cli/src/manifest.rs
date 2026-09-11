@@ -89,3 +89,68 @@ pub fn validate_name(name: &str) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_valid_names() {
+        for name in ["a", "sample-app", "my-project-2", "x1"] {
+            assert!(validate_name(name).is_ok(), "expected '{name}' to be valid");
+        }
+    }
+
+    #[test]
+    fn rejects_empty() {
+        assert!(validate_name("").is_err());
+    }
+
+    #[test]
+    fn rejects_leading_digit_or_dash() {
+        assert!(validate_name("1app").is_err());
+        assert!(validate_name("-app").is_err());
+    }
+
+    #[test]
+    fn rejects_uppercase_and_symbols() {
+        assert!(validate_name("MyApp").is_err());
+        assert!(validate_name("my_app").is_err());
+        assert!(validate_name("my app").is_err());
+        assert!(validate_name("my/app").is_err());
+    }
+
+    #[test]
+    fn rejects_dots() {
+        // Dots aren't in the allowed charset at all — this also guards
+        // against a name like ".." breaking the project directory path.
+        assert!(validate_name("..").is_err());
+        assert!(validate_name("a.b").is_err());
+    }
+
+    #[test]
+    fn rejects_over_63_chars() {
+        let long = "a".repeat(64);
+        assert!(validate_name(&long).is_err());
+        let ok_len = "a".repeat(63);
+        assert!(validate_name(&ok_len).is_ok());
+    }
+
+    #[test]
+    fn default_manifest_has_sane_resource_limits() {
+        let m = Manifest::new("sample", "isolator/base:latest");
+        assert_eq!(m.resources.pids, 512);
+        assert!(m.secrets.contains(&"ANTHROPIC_API_KEY".to_string()));
+        assert!(m.egress.allow.is_empty());
+    }
+
+    #[test]
+    fn manifest_round_trips_through_yaml() {
+        let m = Manifest::new("sample", "isolator/node:latest");
+        let text = serde_yaml::to_string(&m).unwrap();
+        let back: Manifest = serde_yaml::from_str(&text).unwrap();
+        assert_eq!(back.name, m.name);
+        assert_eq!(back.image, m.image);
+        assert_eq!(back.resources.pids, m.resources.pids);
+    }
+}
