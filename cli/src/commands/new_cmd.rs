@@ -55,7 +55,7 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
                 ".",
             ],
         )?;
-        audit::log_exec(name, &["git".into(), "clone".into(), clone_url], status.code())?;
+        audit::log_exec(name, &m, "exec", &["git".into(), "clone".into(), clone_url], status.code())?;
         proc::require_success("git clone in sandbox", status)?;
     }
 
@@ -63,7 +63,7 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
     let status = proc::run_inherit("docker", &["exec", &m.sandbox_container(), "keel", "init"]);
     match status {
         Ok(s) => {
-            audit::log_exec(name, &["keel".into(), "init".into()], s.code())?;
+            audit::log_exec(name, &m, "exec", &["keel".into(), "init".into()], s.code())?;
             if !s.success() {
                 println!(
                     "note: `keel init` did not exit cleanly — check with `isolator shell {name}`"

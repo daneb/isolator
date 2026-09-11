@@ -1,26 +1,100 @@
-use crate::paths;
-use anyhow::Result;
+use crate::{audit, manifest::Manifest, paths, proc};
+use anyhow::{Context, Result};
+use std::path::PathBuf;
 
-/// v1: show the host-side audit trail for a project. The full pipeline
-/// (folding in the egress proxy's log and keel's own evidence bundles) is
-/// Phase 6 — this is deliberately just the exec log for now, not a stub
-/// that pretends to be more than it is.
-pub fn run(name: &str) -> Result<()> {
-    let log = paths::exec_log_path(name)?;
-    if !log.exists() {
-        println!("no audit entries yet for '{name}' ({})", log.display());
+/// Show (and optionally verify or export) a project's audit trail.
+/// Always folds in any new egress-gateway log lines first, so what's
+/// printed reflects what's actually happened, not just what `isolator
+/// run`/`shell` happened to observe directly.
+pub fn run(name: &str, verify: bool, export: Option<PathBuf>) -> Result<()> {
+    let m = Manifest::load(&paths::manifest_path(name)?)?;
+    let folded = audit::fold_egress_log(name, &m).unwrap_or(0);
+    let path = paths::chain_log_path(name)?;
+
+    if let Some(out_dir) = export {
+        let bundle = export_bundle(name, &m, out_dir)?;
+        println!("audit bundle written to {}", bundle.display());
         return Ok(());
     }
-    println!("== exec log: {} ==", log.display());
-    let text = std::fs::read_to_string(&log)?;
-    for line in text.lines() {
-        println!("{line}");
+
+    if verify {
+        match audit::verify_chain(&path)? {
+            audit::VerifyOutcome::Ok { entries } => {
+                println!("chain OK — {entries} entries, no tampering detected.");
+                return Ok(());
+            }
+            audit::VerifyOutcome::Tampered { at_seq, reason } => {
+                anyhow::bail!("TAMPERED: chain integrity broken at seq {at_seq}: {reason}");
+            }
+        }
     }
+
+    if !path.exists() {
+        println!("no audit entries yet for '{name}' ({})", path.display());
+        return Ok(());
+    }
+
+    if folded > 0 {
+        println!("(folded in {folded} new egress-log entries)\n");
+    }
+
+    println!("== audit chain: {} ==", path.display());
+    let text = std::fs::read_to_string(&path)?;
+    let mut tripwires = 0;
+    for line in text.lines() {
+        if line.contains("\"kind\":\"tripwire\"") {
+            tripwires += 1;
+            println!("[TRIPWIRE] {line}");
+        } else {
+            println!("{line}");
+        }
+    }
+
     println!(
-        "\nNote: this is the exec log only. Egress proxy logs and keel's own\n\
-         evidence bundles (.keel/store/evidence/) are not yet folded in —\n\
-         see Phase 6 in the isolator plan. Egress logs for this project can\n\
-         be read directly with: docker logs {name}-egress"
+        "\nkeel's own evidence bundles (.keel/store/evidence/) live inside the\n\
+         workspace volume, not here — use `isolator audit {name} --export` to\n\
+         pull everything (this chain + the latest keel bundle) into one archive."
     );
+    if tripwires > 0 {
+        println!("\n{tripwires} TRIPWIRE entr{} in this trail — see docs/THREAT-MODEL.md.", if tripwires == 1 { "y" } else { "ies" });
+    }
     Ok(())
+}
+
+fn export_bundle(name: &str, m: &Manifest, out_dir: PathBuf) -> Result<PathBuf> {
+    std::fs::create_dir_all(&out_dir)?;
+    let staging = paths::audit_dir(name)?.join(".export-staging");
+    let _ = std::fs::remove_dir_all(&staging);
+    std::fs::create_dir_all(&staging)?;
+
+    let chain_path = paths::chain_log_path(name)?;
+    if chain_path.exists() {
+        std::fs::copy(&chain_path, staging.join("chain.jsonl"))?;
+    }
+    std::fs::copy(paths::manifest_path(name)?, staging.join("isolator.yaml"))?;
+
+    // Best-effort: keel's own evidence bundle, if this project has run any
+    // keel-gated work yet. Not fatal if there isn't one.
+    let evidence_dest = staging.join("keel-evidence");
+    let _ = proc::run_capture(
+        "docker",
+        &[
+            "cp",
+            &format!("{}:/workspace/.keel/store/evidence", m.sandbox_container()),
+            &evidence_dest.to_string_lossy(),
+        ],
+    );
+
+    let bundle_name = format!(
+        "{name}-audit-{}.tar.gz",
+        chrono::Utc::now().format("%Y%m%dT%H%M%SZ")
+    );
+    let bundle_path = out_dir.join(bundle_name);
+    let staging_str = staging.to_string_lossy().to_string();
+    let bundle_str = bundle_path.to_string_lossy().to_string();
+    let status = proc::run_inherit("tar", &["-czf", &bundle_str, "-C", &staging_str, "."])?;
+    proc::require_success("tar", status)?;
+
+    std::fs::remove_dir_all(&staging).context("cleaning up export staging dir")?;
+    Ok(bundle_path)
 }

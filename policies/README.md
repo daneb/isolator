@@ -17,9 +17,27 @@ The flags every sandbox container is started with (rendered into
 
 ## `isolator selftest`
 
-Rather than trust that the compose template is applied correctly by
-inspection alone, `isolator selftest <project>` (Phase 3 stub, filled in
-during Phase 7) runs `docker inspect` against the live container and
-asserts every row in the table above actually holds — so a future change
-to the template that accidentally weakens one of these is caught
-immediately, not discovered during an incident.
+`isolator selftest <project>` runs two layers of checks against a live
+container:
+
+1. **Static checks** (`docker inspect`): asserts every row in the table
+   above actually holds — read-only rootfs, dropped capabilities,
+   no-new-privileges, not privileged, no bind mounts, non-root user, not
+   on the default bridge network, a pids limit. Every default in this
+   evaluator leans toward FAIL on missing/malformed data, not PASS — a
+   corrupted or truncated `docker inspect` result must never read as "all
+   clear" (see the `missing_fields_default_to_failing_safe` test in
+   `cli/src/commands/selftest.rs`).
+2. **Active breakout battery** (live probes inside the container): tries
+   to reach the reserved canary domain (must fail), tries to write to the
+   read-only root filesystem (must fail), checks `docker.sock` is not
+   present (must be absent). Each run leaves a `tripwire-check` entry in
+   the project's audit chain, and folds in any resulting egress-log
+   entries — so a canary-domain attempt shows up as a `TRIPWIRE` line in
+   `isolator audit`, not just a console message that scrolls away.
+
+So a future change to the compose template or the images that
+accidentally weakens one of these is caught immediately, not discovered
+during an incident. See `tests/e2e.sh` for the full battery run against a
+real container, including a live tamper attempt against the audit chain
+itself.

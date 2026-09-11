@@ -63,7 +63,39 @@ of trusting it equal to "one throwaway container," never "the Mac Mini."
    `~/.isolator/projects/<name>/audit/*`. Prevented structurally: that
    directory lives on the host and is never mounted into any container;
    everything written there is written by the host-side `isolator`
-   process itself, not by the container.
+   process itself, not by the container. The audit trail itself
+   (`audit/chain.jsonl`) is additionally a SHA-256 hash chain — each entry
+   commits to the hash of the entry before it, so even someone with
+   direct filesystem access to `~/.isolator/` (not the sandbox — the
+   *operator's own machine*) can't edit, delete, reorder, or insert an
+   entry without `isolator audit <name> --verify` detecting exactly where
+   the chain breaks. This defends against accidental corruption and
+   against a compromised process on the host with file access but not
+   the ability to observe every command as it ran; it does not defend
+   against someone who controls the `isolator` binary itself (see
+   "explicitly out of scope" below).
+
+## Why not a git pre-push hook for detecting code leaving the sandbox
+
+An earlier version of this plan considered baking a `pre-push` git hook
+into the base image to log every push. It's not used: a git hook runs
+*inside* the sandbox, under the same account that controls its own git
+config — the agent (or a cloned repo's `.gitattributes`/`core.hooksPath`
+override) can simply reconfigure or bypass it, so it would be a control
+that looks like a boundary but isn't one. Instead:
+
+- `isolator run <project> -- git push ...` is tagged `kind: "git-push"` in
+  the audit chain by the CLI itself (host-side, so it's a real signal,
+  not something the sandbox can suppress) — but it only sees commands run
+  through `isolator run`, not ones typed inside an interactive `isolator
+  shell` session.
+- The **egress gateway's own log**, folded into the audit chain by
+  `isolator audit`, is the reliable signal: every connection to
+  `github.com` is recorded from *outside* the sandbox, and nothing inside
+  the sandbox can prevent or edit that record. It can't distinguish a
+  push from a fetch/clone (TLS isn't intercepted — see
+  proxy/README.md) but it can't be lied to about whether the connection
+  happened at all.
 
 ## Explicitly out of scope for v1
 

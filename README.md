@@ -46,19 +46,44 @@ isolator down my-app
 - `cli/` — the `isolator` Rust CLI
 - `docs/` — threat model and architecture
 
+## Testing
+
+- `cd cli && cargo test` — 47 unit tests: selftest's hardening evaluator
+  (fed synthetic `docker inspect` JSON, including fail-safe-on-missing-data
+  cases), manifest validation and round-tripping, compose template
+  rendering, the tinyproxy access-log parser, and the audit hash chain
+  (append/verify, plus deliberately editing, deleting, reordering, and
+  forging entries to confirm `--verify` catches each one).
+- `./tests/e2e.sh` — end-to-end against real Docker containers: creates a
+  throwaway project, runs `isolator selftest`'s static checks and active
+  breakout battery, confirms egress allow/deny against github.com and
+  example.com, confirms a `git push` attempt is tagged distinctly in the
+  audit chain, folds the egress log in via `isolator audit`, verifies the
+  chain, **live-tampers with the real chain.jsonl file and confirms
+  `--verify` detects it**, and exports an audit bundle. Requires the
+  images to already be built (`./images/build.sh`).
+
 ## Status
 
-Phases 0–4 of the plan are done: base + language images, the egress
-gateway with a default-deny allow-list, the container hardening baseline
-(read-only rootfs, dropped capabilities, no bind mounts, non-root user, no
-default-bridge network — all asserted by `isolator selftest`), and the
-`isolator` CLI (`new`, `up`, `down`, `shell`, `run`, `status`, `audit`,
-`selftest`). Verified end-to-end: `keel` and the Claude Code CLI both run
-inside the sandbox, `keel init` succeeds, and the egress proxy correctly
-allows github.com/api.anthropic.com while blocking everything else by
-default.
+Phases 0–7 of the plan are done:
 
-Not yet built: folding the egress proxy's log and keel's own evidence
-bundles into one audit trail (Phase 6), the tripwire/breakout-detection
-battery beyond the current hardening checks (Phase 7), and the full
-ideation-to-shipped walkthrough doc (Phase 8).
+- **0–3**: threat model/architecture docs, base + language images, the
+  egress gateway with a default-deny allow-list, the container hardening
+  baseline (read-only rootfs, dropped capabilities, no bind mounts,
+  non-root user, no default-bridge network).
+- **4**: the `isolator` CLI (`new`, `up`, `down`, `shell`, `run`, `status`,
+  `audit`, `selftest`).
+- **5**: keel + the Claude Code CLI verified running inside the sandbox
+  (`keel init`, `keel run` all execute there, not on the host).
+- **6**: a hash-chained, tamper-evident audit trail per project
+  (`audit/chain.jsonl`) folding in exec commands, egress verdicts, and a
+  distinct `git-push` tag; `isolator audit --verify` and `--export`.
+- **7**: `isolator selftest` now also runs an active breakout battery
+  (canary-domain reachability, read-only-fs write attempt, `docker.sock`
+  presence) against a live container, not just static `docker inspect`
+  checks.
+
+Not yet built: the full ideation-to-shipped walkthrough doc with a real
+sample project and a real GitHub repo (Phase 8), and the deferred
+hardening items — gVisor, per-task ephemeral containers, Keychain-sourced
+secrets, remote audit log shipping (Phase 9).

@@ -1,4 +1,4 @@
-use crate::{manifest::Manifest, paths, proc};
+use crate::{audit, canary::CANARY_DOMAIN, manifest::Manifest, paths, proc};
 use anyhow::{Context, Result};
 use serde_json::Value;
 
@@ -6,6 +6,73 @@ struct Check {
     label: &'static str,
     pass: bool,
     detail: String,
+}
+
+/// Run one probe inside the sandbox and decide pass/fail from whether it
+/// was blocked the way it should have been. These need a live container
+/// (unlike `evaluate()` above) so they aren't unit-tested directly — the
+/// e2e script in tests/e2e.sh exercises them against a real sandbox.
+/// Run one probe and turn its (possibly failed-to-even-launch) result
+/// into a Check. `pass_when` decides pass/fail from (exit_success, stdout)
+/// — always evaluated as `false` if the probe itself couldn't be run at
+/// all, since an unrunnable probe proves nothing.
+fn probe(
+    label: &'static str,
+    result: Result<(std::process::ExitStatus, String)>,
+    detail_prefix: &str,
+    pass_when: impl Fn(bool, &str) -> bool,
+) -> Check {
+    match result {
+        Ok((status, out)) => Check {
+            label,
+            pass: pass_when(status.success(), out.trim()),
+            detail: format!("{detail_prefix}: exit_success={} out={:?}", status.success(), out.trim()),
+        },
+        Err(e) => Check {
+            label,
+            pass: false,
+            detail: format!("{detail_prefix}: could not run probe: {e}"),
+        },
+    }
+}
+
+fn run_breakout_battery(container: &str) -> Vec<Check> {
+    vec![
+        probe(
+            "canary domain is unreachable",
+            proc::run_capture(
+                "docker",
+                &[
+                    "exec",
+                    container,
+                    "curl",
+                    "-sS",
+                    "-o",
+                    "/dev/null",
+                    "--max-time",
+                    "5",
+                    &format!("https://{CANARY_DOMAIN}"),
+                ],
+            ),
+            &format!("curl https://{CANARY_DOMAIN}"),
+            |success, _| !success,
+        ),
+        probe(
+            "root filesystem rejects writes",
+            proc::run_capture(
+                "docker",
+                &["exec", container, "sh", "-c", "touch /isolator-write-test 2>&1"],
+            ),
+            "touch /isolator-write-test",
+            |success, _| !success,
+        ),
+        probe(
+            "docker.sock is not present",
+            proc::run_capture("docker", &["exec", container, "test", "-S", "/var/run/docker.sock"]),
+            "test -S /var/run/docker.sock",
+            |success, _| !success,
+        ),
+    ]
 }
 
 /// Pure evaluation of a `docker inspect <container>` result (the `[0]`
@@ -124,16 +191,38 @@ pub fn run(name: &str) -> Result<()> {
         .first()
         .context("docker inspect returned no containers")?;
 
-    let checks = evaluate(info);
-
-    let mut all_pass = true;
+    let mut checks = evaluate(info);
+    println!("-- static hardening checks (docker inspect) --");
     for c in &checks {
         let mark = if c.pass { "PASS" } else { "FAIL" };
-        if !c.pass {
-            all_pass = false;
-        }
         println!("[{mark}] {} ({})", c.label, c.detail);
     }
+
+    println!("\n-- active breakout battery (live probes) --");
+    let battery = run_breakout_battery(&container);
+    for c in &battery {
+        let mark = if c.pass { "PASS" } else { "FAIL" };
+        println!("[{mark}] {} ({})", c.label, c.detail);
+    }
+    audit::log_exec(
+        name,
+        &m,
+        "tripwire-check",
+        &["selftest".into(), "breakout-battery".into()],
+        None,
+    )
+    .ok();
+    let folded = audit::fold_egress_log(name, &m).unwrap_or(0);
+    if folded > 0 {
+        println!("\n(folded {folded} new egress-log entries into the audit chain — check `isolator audit {name}` for any TRIPWIRE lines)");
+    }
+
+    checks.extend(battery.into_iter().map(|c| Check {
+        label: c.label,
+        pass: c.pass,
+        detail: c.detail,
+    }));
+    let all_pass = checks.iter().all(|c| c.pass);
 
     if all_pass {
         println!("\nselftest: all checks passed for '{name}'.");

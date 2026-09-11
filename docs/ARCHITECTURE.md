@@ -60,19 +60,40 @@ for the planted canary token.
 
 ### Audit pipeline
 
-Three sources, one per-project timeline on the host:
+One hash-chained, append-only file per project:
+`~/.isolator/projects/<name>/audit/chain.jsonl`. Every entry has a `kind`
+(`exec`, `git-push`, `egress`, `tripwire`, `tripwire-check`), a
+timestamp, and a `hash` that commits to the entry's own contents plus the
+previous entry's hash — a Merkle-style chain, not just a log file. Three
+things append to it:
 
-1. `exec.jsonl` — every `isolator run`/`shell` invocation (command, exit
-   code, timestamp), written directly by the CLI.
-2. `egress.jsonl` — folded in from the egress container's access log.
-3. `git-push.jsonl` — the actual "code leaves the sandbox" event, captured
-   distinctly from routine egress traffic.
+1. **Exec entries** — every `isolator run`/`shell` invocation (redacted
+   argv, exit code), written directly by the CLI as it happens. A command
+   that looks like `git push` is tagged `kind: "git-push"` instead of the
+   generic `exec`, since that's the one channel through which code
+   actually leaves the sandbox for real.
+2. **Egress entries** — folded in from the egress gateway's own access
+   log by `isolator audit` / `isolator selftest` (idempotent — a
+   `.egress-offset` checkpoint tracks how much has already been folded).
+   A request to the reserved canary domain folds in as `kind: "tripwire"`
+   instead of routine `egress`.
+3. **Tripwire-check entries** — a marker written each time `isolator
+   selftest`'s active breakout battery runs (canary-domain reachability,
+   read-only-filesystem write attempt, `docker.sock` presence).
 
+`isolator audit <name> --verify` recomputes the whole chain and reports
+exactly which entry (if any) has been edited, deleted, reordered, or
+forged — see docs/THREAT-MODEL.md's "audit tampering" section.
+`isolator audit <name> --export <dir>` bundles `chain.jsonl` plus
 keel's own evidence trail (`.keel/store/evidence/*/bundle.tar.gz`,
-`trajectory.jsonl`) stays inside the project's workspace volume — that's
-keel's job, not isolator's — and `isolator audit <name> --export` pulls
-the latest bundle out alongside the isolator-side logs for one combined
-review artifact.
+pulled out of the workspace volume via `docker cp` — that data is keel's
+job, not isolator's, so isolator only ever reads it, never generates it)
+into one `tar.gz` for review.
+
+Secret values known to the `isolator` process's own environment (per the
+manifest's `secrets:` list) are redacted from every chain entry before
+it's written — see `audit::redact` and its stated limits in
+docs/THREAT-MODEL.md.
 
 ## Why no bind mount
 

@@ -9,6 +9,6 @@ pub fn run(name: &str) -> Result<()> {
         "docker",
         &["exec", "-it", &container, "/bin/bash"],
     )?;
-    audit::log_exec(name, &["shell".into()], status.code())?;
+    audit::log_exec(name, &m, "exec", &["shell".into()], status.code())?;
     Ok(())
 }

@@ -1,11 +1,14 @@
 mod audit;
+mod canary;
 mod commands;
 mod compose;
+mod egress_log;
 mod manifest;
 mod paths;
 mod proc;
 
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "isolator", about = "Containerized, keel-driven AI sandboxes")]
@@ -42,11 +45,23 @@ enum Command {
     },
     /// List all projects and their container status.
     Status,
-    /// Show the host-side audit trail for a project.
-    Audit { name: String },
+    /// Show the host-side audit trail for a project (folds in new egress
+    /// gateway log entries first).
+    Audit {
+        name: String,
+        /// Recompute the hash chain and report whether it's intact instead
+        /// of printing the trail.
+        #[arg(long)]
+        verify: bool,
+        /// Export the chain plus the latest keel evidence bundle as a
+        /// tar.gz into this directory instead of printing the trail.
+        #[arg(long, value_name = "DIR")]
+        export: Option<PathBuf>,
+    },
     /// Verify a running project's container actually has every hardening
     /// control applied (read-only rootfs, dropped capabilities, no bind
-    /// mounts, non-root user, no default-bridge network, ...).
+    /// mounts, non-root user, no default-bridge network, ...) and run the
+    /// active breakout battery (canary domain, read-only fs, docker.sock).
     Selftest { name: String },
 }
 
@@ -60,7 +75,7 @@ fn main() {
         Command::Shell { name } => commands::shell::run(&name),
         Command::Run { name, cmd } => commands::run_cmd::run(&name, &cmd),
         Command::Status => commands::status::run(),
-        Command::Audit { name } => commands::audit_cmd::run(&name),
+        Command::Audit { name, verify, export } => commands::audit_cmd::run(&name, verify, export),
         Command::Selftest { name } => commands::selftest::run(&name),
     };
 

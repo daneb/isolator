@@ -22,8 +22,17 @@ pub fn audit_dir(name: &str) -> Result<PathBuf> {
     Ok(project_dir(name)?.join("audit"))
 }
 
-pub fn exec_log_path(name: &str) -> Result<PathBuf> {
-    Ok(audit_dir(name)?.join("exec.jsonl"))
+/// The single hash-chained audit trail for a project — exec commands,
+/// folded-in egress verdicts, and tripwire hits all append here. See
+/// audit.rs.
+pub fn chain_log_path(name: &str) -> Result<PathBuf> {
+    Ok(audit_dir(name)?.join("chain.jsonl"))
+}
+
+/// How many raw lines of the egress gateway's access log have already
+/// been folded into chain.jsonl — lets `isolator audit` be idempotent.
+pub fn egress_offset_path(name: &str) -> Result<PathBuf> {
+    Ok(audit_dir(name)?.join(".egress-offset"))
 }
 
 pub fn ensure_project_dirs(name: &str) -> Result<()> {

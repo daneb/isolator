@@ -1,3 +1,4 @@
+use crate::canary;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -14,6 +15,10 @@ pub struct Manifest {
     pub resources: Resources,
     #[serde(default)]
     pub secrets: Vec<String>,
+    /// Generated once at `new` time, never user-edited. Injected into the
+    /// sandbox as ISOLATOR_CANARY_TOKEN — see canary.rs.
+    #[serde(default = "canary::generate_token")]
+    pub canary_token: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -48,6 +53,7 @@ impl Manifest {
             egress: Egress::default(),
             resources: Resources::default(),
             secrets: vec!["ANTHROPIC_API_KEY".to_string(), "GITHUB_TOKEN".to_string()],
+            canary_token: canary::generate_token(),
         }
     }
 

@@ -27,6 +27,7 @@ pub fn render(m: &Manifest) -> String {
         .replace("{{PIDS_LIMIT}}", &m.resources.pids.to_string())
         .replace("{{SECRET_ENV_LINES}}", &secret_env_lines)
         .replace("{{EXTRA_ALLOW_DOMAINS}}", &extra_allow)
+        .replace("{{CANARY_TOKEN}}", &m.canary_token)
 }
 
 #[cfg(test)]
@@ -49,6 +50,7 @@ mod tests {
             "{{PIDS_LIMIT}}",
             "{{SECRET_ENV_LINES}}",
             "{{EXTRA_ALLOW_DOMAINS}}",
+            "{{CANARY_TOKEN}}",
         ] {
             assert!(
                 !rendered.contains(token),

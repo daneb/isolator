@@ -26,3 +26,8 @@ secrets:
   # environment/keychain, never stored in this file or the image.
   - ANTHROPIC_API_KEY
   - GITHUB_TOKEN
+
+# Generated once by `isolator new`, never hand-edited. Injected into the
+# sandbox as ISOLATOR_CANARY_TOKEN — see cli/src/canary.rs and
+# proxy/README.md for what it does and doesn't catch.
+canary_token: isolator-canary-186c2e4f9a1b2c3-4242
