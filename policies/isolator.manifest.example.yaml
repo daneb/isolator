@@ -1,0 +1,28 @@
+# Example ~/.isolator/projects/<name>/isolator.yaml
+# Created by `isolator new`, editable by hand afterwards. Changing this
+# file is the whole "permissions" surface for a project — track it in
+# whatever way you track config that matters (it's not committed to the
+# project's own repo, since the repo runs inside the sandbox this file
+# constrains).
+
+name: sample-app
+image: isolator/node:latest   # isolator/base | isolator/node | isolator/rust | isolator/python
+github_repo: daneb/sample-app # set by `isolator new --github`, empty if none
+
+egress:
+  allow:
+    # Appended to the egress gateway's baseline allow-list
+    # (proxy/allowlist.base.txt already covers github.com, api.anthropic.com,
+    # crates.io, npmjs.org, pypi.org). Add only what this project needs.
+    - registry.npmjs.org
+
+resources:
+  cpu: "2.0"      # docker compose `cpus`
+  mem: "4g"       # docker compose `mem_limit`
+  pids: 512       # docker compose `pids_limit`
+
+secrets:
+  # Names only — actual values are supplied at `isolator up` time from the
+  # environment/keychain, never stored in this file or the image.
+  - ANTHROPIC_API_KEY
+  - GITHUB_TOKEN

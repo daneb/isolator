@@ -1,0 +1,11 @@
+use crate::paths;
+use anyhow::Result;
+
+pub fn run(name: &str) -> Result<()> {
+    if !paths::manifest_path(name)?.exists() {
+        anyhow::bail!("no project '{name}' — run `isolator new {name}` first");
+    }
+    super::compose_up(name)?;
+    println!("'{name}' is up.");
+    Ok(())
+}

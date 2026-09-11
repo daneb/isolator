@@ -1,0 +1,29 @@
+# No User/Group directive: the container itself already runs as the
+# tinyproxy user (see Dockerfile) so tinyproxy never needs to setuid/setgid
+# at runtime — which matters because the egress container runs with
+# cap_drop: ALL and would otherwise lack CAP_SETUID/CAP_SETGID to drop
+# privileges itself.
+Port 8888
+Listen 0.0.0.0
+Timeout 600
+
+# No caching, no upstream chaining, no reverse-proxy mode — this is a
+# pure forward proxy with a default-deny allow-list.
+LogLevel Info
+LogFile "/var/log/tinyproxy/access.log"
+
+MaxClients 50
+StartServers 4
+
+# Default-deny: only hostnames matching a line in the filter file may be
+# reached, over HTTP or HTTPS CONNECT alike. entrypoint.sh renders
+# /run/tinyproxy/filter (writable tmpfs — the container root filesystem
+# is read-only) from the base allow-list plus the project's own
+# isolator.yaml egress.allow entries before tinyproxy starts.
+Filter "/run/tinyproxy/filter"
+PidFile "/run/tinyproxy/tinyproxy.pid"
+FilterDefaultDeny Yes
+FilterExtended Yes
+FilterCaseSensitive No
+
+DisableViaHeader Yes

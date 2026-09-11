@@ -1,0 +1,70 @@
+# Rendered by the isolator CLI (Phase 4) with {{PLACEHOLDER}} substitution
+# — no templating engine dependency, just string replace, so this file
+# stays readable as ground truth for what actually gets applied.
+#
+# Network topology: the sandbox is attached ONLY to `{{PROJECT_NAME}}-internal`,
+# which is marked `internal: true` — Docker gives that network no route to
+# the outside world at all. The egress gateway is attached to both
+# `{{PROJECT_NAME}}-internal` (to be reachable by the sandbox) and the
+# default `{{PROJECT_NAME}}-egress-net` (which does have outbound access).
+# So the sandbox's only possible path to the internet is through the
+# gateway's allow-list — there is no bypass route, not even by ignoring
+# the HTTP_PROXY env var.
+
+services:
+  sandbox:
+    image: {{IMAGE}}
+    container_name: {{PROJECT_NAME}}-sandbox
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    cpus: "{{CPU_LIMIT}}"
+    mem_limit: "{{MEM_LIMIT}}"
+    pids_limit: {{PIDS_LIMIT}}
+    networks:
+      - internal
+    environment:
+      HTTP_PROXY: "http://egress:8888"
+      HTTPS_PROXY: "http://egress:8888"
+      NO_PROXY: "localhost,127.0.0.1"
+{{SECRET_ENV_LINES}}
+    volumes:
+      - workspace:/workspace
+      - cache:/home/agent/.cache
+    command: ["sleep", "infinity"]
+    depends_on:
+      - egress
+
+  egress:
+    image: isolator/egress:latest
+    container_name: {{PROJECT_NAME}}-egress
+    read_only: true
+    tmpfs:
+      - /run:mode=1777
+      - /var/log/tinyproxy:mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+      - egress-net
+    environment:
+      EXTRA_ALLOW_DOMAINS: "{{EXTRA_ALLOW_DOMAINS}}"
+
+networks:
+  internal:
+    name: {{PROJECT_NAME}}-internal
+    internal: true
+  egress-net:
+    name: {{PROJECT_NAME}}-egress-net
+
+volumes:
+  workspace:
+    name: {{PROJECT_NAME}}-workspace
+  cache:
+    name: {{PROJECT_NAME}}-cache

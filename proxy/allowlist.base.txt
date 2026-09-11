@@ -1,0 +1,19 @@
+# Default egress allow-list, one hostname (or ^regex$ anchored pattern) per
+# line. tinyproxy Filter syntax: plain hostnames match as regex, so dots
+# are escaped and subdomains are listed explicitly with a leading dot.
+# A project's isolator.yaml `egress.allow` list is appended to this file
+# at container start (see entrypoint.sh) — this file is the baseline every
+# project gets, not the whole story.
+
+# GitHub — code push/pull, keel worktree operations
+^([a-zA-Z0-9-]+\.)*github\.com$
+^([a-zA-Z0-9-]+\.)*githubusercontent\.com$
+
+# Anthropic API — Claude Code CLI
+^api\.anthropic\.com$
+
+# Language package registries (add more per-project via isolator.yaml)
+^([a-zA-Z0-9-]+\.)*crates\.io$
+^registry\.npmjs\.org$
+^pypi\.org$
+^files\.pythonhosted\.org$
