@@ -44,19 +44,35 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
     if let Some(repo) = &m.github_repo {
         let clone_url = format!("https://github.com/{repo}.git");
         println!("==> cloning {clone_url} into the sandbox workspace volume");
+        // Freshly created repos are private, so cloning needs a credential.
+        // GITHUB_TOKEN (if the operator exported it before `isolator new`)
+        // is already sitting in the *container's own* environment via the
+        // compose template's ${GITHUB_TOKEN:-} substitution — so this
+        // reads it there, inside the container's shell, rather than
+        // passing the token as a CLI argument to `docker exec` (which
+        // would put it in this process's own argv and, from there, in
+        // `docker inspect`/`ps` output on the host).
+        let credential_helper =
+            "!f() { echo username=x-access-token; echo \"password=$GITHUB_TOKEN\"; }; f";
         let status = proc::run_inherit(
             "docker",
             &[
                 "exec",
                 &m.sandbox_container(),
                 "git",
+                "-c",
+                &format!("credential.helper={credential_helper}"),
                 "clone",
                 &clone_url,
                 ".",
             ],
         )?;
         audit::log_exec(name, &m, "exec", &["git".into(), "clone".into(), clone_url], status.code())?;
-        proc::require_success("git clone in sandbox", status)?;
+        if !status.success() {
+            println!(
+                "note: clone failed — if '{repo}' is private, export GITHUB_TOKEN (e.g. `export GITHUB_TOKEN=$(gh auth token)`) before `isolator new`/`up` so the sandbox can authenticate."
+            );
+        }
     }
 
     println!("==> running `keel init` inside the sandbox");

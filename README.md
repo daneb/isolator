@@ -8,8 +8,9 @@ misbehaving agent or a malicious cloned repo can compromise at worst one
 throwaway container, never the Mac Mini it runs on.
 
 See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) and
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, and the
-project plan for the phase breakdown this was built against.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, and
+[docs/WALKTHROUGH.md](docs/WALKTHROUGH.md) for a real ideation-to-shipped
+run against an actual GitHub repo — including the three bugs it found.
 
 ## Quick start
 
@@ -65,7 +66,7 @@ isolator down my-app
 
 ## Status
 
-Phases 0–7 of the plan are done:
+Phases 0–8 of the plan are done:
 
 - **0–3**: threat model/architecture docs, base + language images, the
   egress gateway with a default-deny allow-list, the container hardening
@@ -82,8 +83,13 @@ Phases 0–7 of the plan are done:
   (canary-domain reachability, read-only-fs write attempt, `docker.sock`
   presence) against a live container, not just static `docker inspect`
   checks.
+- **8**: [a real project run end-to-end](docs/WALKTHROUGH.md) — a private
+  GitHub repo, a spec, two real gate-caught scope violations, a real
+  `npm install`/`node --test`/`node --check` build inside the sandbox, a
+  real `git push`, and a verified 51-entry audit trail. Found and fixed
+  three real bugs: the private-repo clone had no credentials, the
+  `--export` bundle pointed at a keel evidence path that doesn't exist,
+  and (same root cause) the audit command's own help text repeated it.
 
-Not yet built: the full ideation-to-shipped walkthrough doc with a real
-sample project and a real GitHub repo (Phase 8), and the deferred
-hardening items — gVisor, per-task ephemeral containers, Keychain-sourced
-secrets, remote audit log shipping (Phase 9).
+Not yet built: the deferred hardening items in Phase 9 — gVisor, per-task
+ephemeral containers, Keychain-sourced secrets, remote audit log shipping.

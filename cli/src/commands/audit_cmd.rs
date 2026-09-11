@@ -51,9 +51,10 @@ pub fn run(name: &str, verify: bool, export: Option<PathBuf>) -> Result<()> {
     }
 
     println!(
-        "\nkeel's own evidence bundles (.keel/store/evidence/) live inside the\n\
-         workspace volume, not here — use `isolator audit {name} --export` to\n\
-         pull everything (this chain + the latest keel bundle) into one archive."
+        "\nkeel's own exported run bundles (.keel/bundles/, from `keel export`)\n\
+         live inside the workspace volume, not here — use `isolator audit\n\
+         {name} --export` to pull everything (this chain + keel's bundles)\n\
+         into one archive."
     );
     if tripwires > 0 {
         println!("\n{tripwires} TRIPWIRE entr{} in this trail — see docs/THREAT-MODEL.md.", if tripwires == 1 { "y" } else { "ies" });
@@ -73,15 +74,16 @@ fn export_bundle(name: &str, m: &Manifest, out_dir: PathBuf) -> Result<PathBuf> 
     }
     std::fs::copy(paths::manifest_path(name)?, staging.join("isolator.yaml"))?;
 
-    // Best-effort: keel's own evidence bundle, if this project has run any
-    // keel-gated work yet. Not fatal if there isn't one.
-    let evidence_dest = staging.join("keel-evidence");
+    // Best-effort: keel's own exported run bundles (`keel export <run>`
+    // writes each as .keel/bundles/keel-<run-id>.tar.gz), if this project
+    // has run any keel-gated work yet. Not fatal if there aren't any.
+    let bundles_dest = staging.join("keel-bundles");
     let _ = proc::run_capture(
         "docker",
         &[
             "cp",
-            &format!("{}:/workspace/.keel/store/evidence", m.sandbox_container()),
-            &evidence_dest.to_string_lossy(),
+            &format!("{}:/workspace/.keel/bundles", m.sandbox_container()),
+            &bundles_dest.to_string_lossy(),
         ],
     );
 

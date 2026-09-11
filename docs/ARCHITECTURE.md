@@ -84,11 +84,11 @@ things append to it:
 `isolator audit <name> --verify` recomputes the whole chain and reports
 exactly which entry (if any) has been edited, deleted, reordered, or
 forged — see docs/THREAT-MODEL.md's "audit tampering" section.
-`isolator audit <name> --export <dir>` bundles `chain.jsonl` plus
-keel's own evidence trail (`.keel/store/evidence/*/bundle.tar.gz`,
-pulled out of the workspace volume via `docker cp` — that data is keel's
-job, not isolator's, so isolator only ever reads it, never generates it)
-into one `tar.gz` for review.
+`isolator audit <name> --export <dir>` bundles `chain.jsonl` plus keel's
+own exported run bundles (`.keel/bundles/keel-<run-id>.tar.gz`, written by
+`keel export` and pulled out of the workspace volume via `docker cp` —
+that data is keel's job, not isolator's, so isolator only ever reads it,
+never generates it) into one `tar.gz` for review.
 
 Secret values known to the `isolator` process's own environment (per the
 manifest's `secrets:` list) are redacted from every chain entry before
