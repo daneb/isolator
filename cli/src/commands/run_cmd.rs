@@ -19,6 +19,9 @@ pub fn run(name: &str, cmd: &[String]) -> Result<()> {
         anyhow::bail!("usage: isolator run <project> -- <command...>");
     }
     let m = Manifest::load(&paths::manifest_path(name)?)?;
+    // So audit::redact below can scrub a secret's value even when it was
+    // only ever set via Keychain, never exported into this shell.
+    crate::secrets::resolve_into_env(name, &m.secrets);
     let container = m.sandbox_container();
 
     let mut args: Vec<&str> = vec!["exec", &container];

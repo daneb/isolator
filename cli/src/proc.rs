@@ -26,6 +26,7 @@ pub fn run_capture(program: &str, args: &[&str]) -> Result<(ExitStatus, String)>
     Ok((output.status, stdout))
 }
 
+
 pub fn require_success(what: &str, status: ExitStatus) -> Result<()> {
     if !status.success() {
         anyhow::bail!("{what} failed ({status})");

@@ -95,6 +95,29 @@ manifest's `secrets:` list) are redacted from every chain entry before
 it's written — see `audit::redact` and its stated limits in
 docs/THREAT-MODEL.md.
 
+### Where secret values actually come from
+
+`isolator up`/`run`/`shell` resolve each name in the manifest's `secrets:`
+list in this order, before doing anything else:
+
+1. Already set in the operator's own shell (`export ANTHROPIC_API_KEY=...`
+   before running the command) — used as-is.
+2. Otherwise, the macOS Keychain, under a service name scoped to that one
+   project+secret pair (`isolator secrets set <project> <name>` writes
+   one; `isolator secrets status <project>` shows where each currently
+   resolves from). This is what makes ongoing use practical — you set a
+   project's secrets once, and every future `isolator up` just works,
+   with nothing to re-export each session.
+3. Otherwise, left unset — `docker compose`'s `${VAR:-}` substitution
+   leaves it blank in the container, same as today.
+
+Either way, the resolved value is also set in the `isolator` process's own
+environment for the rest of that invocation, so `audit::redact` can find
+and scrub it — this matters specifically because a value that only ever
+existed in Keychain (never exported to a shell) would otherwise be
+invisible to redaction in a *different* `isolator run` invocation than the
+one that first resolved it.
+
 ## Why no bind mount
 
 The container never has a host path mounted into it — not the project

@@ -22,8 +22,11 @@ resources:
   pids: 512       # docker compose `pids_limit`
 
 secrets:
-  # Names only — actual values are supplied at `isolator up` time from the
-  # environment/keychain, never stored in this file or the image.
+  # Names only — actual values are supplied at `isolator up`/`run`/`shell`
+  # time, resolved from your shell's environment first, then the macOS
+  # Keychain (`isolator secrets set <project> <name>` stores one; `isolator
+  # secrets status <project>` shows where each currently resolves from).
+  # Never stored in this file or the image.
   - ANTHROPIC_API_KEY
   - GITHUB_TOKEN
 

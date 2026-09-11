@@ -2,6 +2,7 @@ pub mod audit_cmd;
 pub mod down;
 pub mod new_cmd;
 pub mod run_cmd;
+pub mod secrets_status;
 pub mod selftest;
 pub mod shell;
 pub mod status;
@@ -15,6 +16,11 @@ use anyhow::{Context, Result};
 /// takes effect on the next start, not just at creation time.
 pub fn compose_up(name: &str) -> Result<()> {
     let m = Manifest::load(&paths::manifest_path(name)?)?;
+    // Anything not already in this process's own environment gets a
+    // chance to resolve from the Keychain before we hand off to `docker
+    // compose`, which reads ${VAR} substitutions from its parent
+    // process's environment — see secrets.rs.
+    crate::secrets::resolve_into_env(name, &m.secrets);
     let rendered = compose::render(&m);
     let compose_path = paths::compose_path(name)?;
     std::fs::write(&compose_path, rendered)

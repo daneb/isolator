@@ -38,6 +38,17 @@ isolator audit my-app
 isolator down my-app
 ```
 
+Secrets (`ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, ...) are read from your
+shell's environment if exported, otherwise from the macOS Keychain — set
+one once and every future `isolator up` just picks it up, nothing to
+re-export each session:
+
+```bash
+isolator secrets set my-app ANTHROPIC_API_KEY   # prompts, hides input where possible
+isolator secrets status my-app                  # where each declared secret resolves from
+isolator secrets unset my-app ANTHROPIC_API_KEY
+```
+
 ## Layout
 
 - `images/` — the sandbox base image + per-language layers (node, rust, python)
@@ -49,12 +60,13 @@ isolator down my-app
 
 ## Testing
 
-- `cd cli && cargo test` — 47 unit tests: selftest's hardening evaluator
+- `cd cli && cargo test` — 50 unit tests: selftest's hardening evaluator
   (fed synthetic `docker inspect` JSON, including fail-safe-on-missing-data
   cases), manifest validation and round-tripping, compose template
-  rendering, the tinyproxy access-log parser, and the audit hash chain
+  rendering, the tinyproxy access-log parser, the audit hash chain
   (append/verify, plus deliberately editing, deleting, reordering, and
-  forging entries to confirm `--verify` catches each one).
+  forging entries to confirm `--verify` catches each one), and Keychain
+  service-name scoping.
 - `./tests/e2e.sh` — end-to-end against real Docker containers: creates a
   throwaway project, runs `isolator selftest`'s static checks and active
   breakout battery, confirms egress allow/deny against github.com and
@@ -66,7 +78,8 @@ isolator down my-app
 
 ## Status
 
-Phases 0–8 of the plan are done:
+Phases 0–9 of the plan are done, with Phase 9 partial by design (see
+below):
 
 - **0–3**: threat model/architecture docs, base + language images, the
   egress gateway with a default-deny allow-list, the container hardening
@@ -91,5 +104,14 @@ Phases 0–8 of the plan are done:
   `--export` bundle pointed at a keel evidence path that doesn't exist,
   and (same root cause) the audit command's own help text repeated it.
 
-Not yet built: the deferred hardening items in Phase 9 — gVisor, per-task
-ephemeral containers, Keychain-sourced secrets, remote audit log shipping.
+- **9**: Keychain-sourced secrets are built (`isolator secrets
+  set`/`unset`/`status`; resolved automatically by `up`/`run`/`shell`,
+  ahead of the operator's own shell env, with redaction wired through so
+  a Keychain-only secret still gets scrubbed from the audit chain — this
+  closed a real gap: it originally worked only within the single process
+  that first resolved the secret, not later `isolator run` invocations).
+  Checked gVisor/runsc: not available under this OrbStack install (only
+  `runc`), so still deferred — see `policies/README.md`'s Runtime row.
+  Still deferred, genuinely not attempted: per-task ephemeral containers
+  for keel `--waves`, and remote/centralized audit log shipping (no
+  remote destination has been specified to ship to).

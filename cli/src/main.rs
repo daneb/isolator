@@ -6,6 +6,7 @@ mod egress_log;
 mod manifest;
 mod paths;
 mod proc;
+mod secrets;
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -63,6 +64,24 @@ enum Command {
     /// mounts, non-root user, no default-bridge network, ...) and run the
     /// active breakout battery (canary domain, read-only fs, docker.sock).
     Selftest { name: String },
+    /// Manage a project's secrets in the macOS Keychain, as an
+    /// alternative to exporting them into your shell before every
+    /// `isolator up`/`new`.
+    #[command(subcommand)]
+    Secrets(SecretsCommand),
+}
+
+#[derive(Subcommand)]
+enum SecretsCommand {
+    /// Store a secret's value in the Keychain (prompts for it, hidden
+    /// where the terminal supports it). Overwrites any existing value.
+    Set { project: String, name: String },
+    /// Remove a secret from the Keychain.
+    Unset { project: String, name: String },
+    /// Show where each of the project's declared secrets (isolator.yaml's
+    /// `secrets:` list) would currently be resolved from: your shell's
+    /// environment, the Keychain, or neither.
+    Status { project: String },
 }
 
 fn main() {
@@ -77,6 +96,9 @@ fn main() {
         Command::Status => commands::status::run(),
         Command::Audit { name, verify, export } => commands::audit_cmd::run(&name, verify, export),
         Command::Selftest { name } => commands::selftest::run(&name),
+        Command::Secrets(SecretsCommand::Set { project, name }) => secrets::set(&project, &name),
+        Command::Secrets(SecretsCommand::Unset { project, name }) => secrets::unset(&project, &name),
+        Command::Secrets(SecretsCommand::Status { project }) => commands::secrets_status::run(&project),
     };
 
     if let Err(e) = result {
