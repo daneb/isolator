@@ -46,16 +46,32 @@ isolator audit my-app
 isolator down my-app
 ```
 
-Secrets (`ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, ...) are read from your
-shell's environment if exported, otherwise from the macOS Keychain — set
-one once and every future `isolator up` just picks it up, nothing to
-re-export each session:
+Secrets (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN`,
+...) are read from your shell's environment if exported, otherwise from
+the macOS Keychain — set one once and every future `isolator up` just
+picks it up, nothing to re-export each session:
 
 ```bash
 isolator secrets set my-app ANTHROPIC_API_KEY   # prompts, hides input where possible
 isolator secrets status my-app                  # where each declared secret resolves from
 isolator secrets unset my-app ANTHROPIC_API_KEY
 ```
+
+If you pay for Claude via a claude.ai subscription rather than metered
+API credits, use `CLAUDE_CODE_OAUTH_TOKEN` instead of `ANTHROPIC_API_KEY`
+— the `claude` CLI inside the sandbox honors it the same way. Generate it
+once on the host (this does the interactive login there, not in the
+container) and store it the same way as any other secret:
+
+```bash
+claude setup-token                                    # one-time, on the host — opens a browser login
+isolator secrets set my-app CLAUDE_CODE_OAUTH_TOKEN   # paste the token it prints
+```
+
+Note: whether `keel` invokes the `claude` driver (vs. falling back to
+`--no-driver` mode) is keel's own credential check, not isolator's — see
+[keel](https://github.com/daneb/keel)'s docs if it doesn't pick up
+`CLAUDE_CODE_OAUTH_TOKEN` the same way it picks up `ANTHROPIC_API_KEY`.
 
 ## Layout
 

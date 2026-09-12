@@ -52,7 +52,16 @@ impl Manifest {
             github_repo: None,
             egress: Egress::default(),
             resources: Resources::default(),
-            secrets: vec!["ANTHROPIC_API_KEY".to_string(), "GITHUB_TOKEN".to_string()],
+            // Either credential authenticates Claude Code inside the
+            // sandbox — CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`
+            // on the host, for a claude.ai subscription) takes priority
+            // over ANTHROPIC_API_KEY when both are set; that precedence is
+            // the `claude` CLI's own behavior, not isolator's.
+            secrets: vec![
+                "ANTHROPIC_API_KEY".to_string(),
+                "CLAUDE_CODE_OAUTH_TOKEN".to_string(),
+                "GITHUB_TOKEN".to_string(),
+            ],
             canary_token: canary::generate_token(),
         }
     }
@@ -147,6 +156,7 @@ mod tests {
         let m = Manifest::new("sample", "isolator/base:latest");
         assert_eq!(m.resources.pids, 512);
         assert!(m.secrets.contains(&"ANTHROPIC_API_KEY".to_string()));
+        assert!(m.secrets.contains(&"CLAUDE_CODE_OAUTH_TOKEN".to_string()));
         assert!(m.egress.allow.is_empty());
     }
 

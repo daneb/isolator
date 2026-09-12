@@ -28,6 +28,12 @@ secrets:
   # secrets status <project>` shows where each currently resolves from).
   # Never stored in this file or the image.
   - ANTHROPIC_API_KEY
+  # Alternative to ANTHROPIC_API_KEY for a claude.ai subscription instead
+  # of metered API credits — generate once on the host with
+  # `claude setup-token`, then `isolator secrets set <project>
+  # CLAUDE_CODE_OAUTH_TOKEN`. The `claude` CLI inside the sandbox prefers
+  # this over ANTHROPIC_API_KEY when both are set.
+  - CLAUDE_CODE_OAUTH_TOKEN
   - GITHUB_TOKEN
 
 # Generated once by `isolator new`, never hand-edited. Injected into the

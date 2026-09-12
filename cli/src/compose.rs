@@ -72,9 +72,14 @@ mod tests {
     #[test]
     fn secrets_become_compose_default_empty_env_lines() {
         let mut m = Manifest::new("sample-app", "isolator/node:latest");
-        m.secrets = vec!["ANTHROPIC_API_KEY".to_string(), "GITHUB_TOKEN".to_string()];
+        m.secrets = vec![
+            "ANTHROPIC_API_KEY".to_string(),
+            "CLAUDE_CODE_OAUTH_TOKEN".to_string(),
+            "GITHUB_TOKEN".to_string(),
+        ];
         let rendered = render(&m);
         assert!(rendered.contains("ANTHROPIC_API_KEY: \"${ANTHROPIC_API_KEY:-}\""));
+        assert!(rendered.contains("CLAUDE_CODE_OAUTH_TOKEN: \"${CLAUDE_CODE_OAUTH_TOKEN:-}\""));
         assert!(rendered.contains("GITHUB_TOKEN: \"${GITHUB_TOKEN:-}\""));
     }
 
