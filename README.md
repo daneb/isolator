@@ -8,9 +8,12 @@ misbehaving agent or a malicious cloned repo can compromise at worst one
 throwaway container, never the Mac Mini it runs on.
 
 See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) and
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, and
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design,
 [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md) for a real ideation-to-shipped
-run against an actual GitHub repo — including the three bugs it found.
+run against an actual GitHub repo — including the three bugs it found —
+and [docs/decisions/0001-container-runtime-choice.md](docs/decisions/0001-container-runtime-choice.md)
+for why this stays on `runc` rather than gVisor or Apple's native
+`container` tool.
 
 ## Quick start
 
