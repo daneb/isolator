@@ -111,7 +111,24 @@ below):
   closed a real gap: it originally worked only within the single process
   that first resolved the secret, not later `isolator run` invocations).
   Checked gVisor/runsc: not available under this OrbStack install (only
-  `runc`), so still deferred — see `policies/README.md`'s Runtime row.
-  Still deferred, genuinely not attempted: per-task ephemeral containers
-  for keel `--waves`, and remote/centralized audit log shipping (no
+  `runc`), and switching to Docker Desktop wouldn't fix that either — its
+  engine runs in the same kind of managed, non-administrable VM. Also
+  looked at Apple's native `container` tool (its own-VM-per-container
+  model would sidestep the "shared kernel" concern more fundamentally
+  than gVisor does) — not usable on this Mac yet (needs a newer macOS
+  than 15.3.1) and not a drop-in replacement for the `docker compose`
+  layer this project is built on regardless. Both fully written up in
+  `policies/README.md`'s Runtime rows.
+
+  **Per-task ephemeral containers for `--waves` — deprioritized, not just
+  deferred.** That item only matters if multiple keel tasks run
+  concurrently in the same container, which only happens with `keel run
+  --waves`. Daily usage here is serial (`gate g0` → `approve` → `gate g1`
+  → `approve` → `run`, one stage at a time), where only one task is ever
+  active in the sandbox at once — so there's no concurrent-task exposure
+  to close today, and the canary token being per-project rather than
+  per-task is a non-issue when there's only ever one task running. Revisit
+  if `--waves` actually gets used.
+
+  Still genuinely deferred: remote/centralized audit log shipping (no
   remote destination has been specified to ship to).
