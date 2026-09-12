@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::path::Path;
 use std::process::{Command, ExitStatus, Stdio};
 
 /// Run a command with stdio inherited (the operator sees output live,
@@ -26,6 +27,33 @@ pub fn run_capture(program: &str, args: &[&str]) -> Result<(ExitStatus, String)>
     Ok((output.status, stdout))
 }
 
+
+/// Run a command, streaming a local file's bytes to its stdin. Used to get
+/// a file into a container whose root filesystem is read-only: `docker
+/// cp`'s own copy mechanism needs write access it doesn't have there even
+/// when the destination path is a writable tmpfs mount, but piping bytes
+/// through `docker exec -i <container> sh -c 'cat > dest'`'s stdin only
+/// ever touches that one writable destination.
+pub fn run_with_stdin_file(program: &str, args: &[&str], stdin_path: &Path) -> Result<ExitStatus> {
+    let mut child = Command::new(program)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .with_context(|| format!("spawning `{program} {}`", args.join(" ")))?;
+
+    let mut file = std::fs::File::open(stdin_path)
+        .with_context(|| format!("opening {}", stdin_path.display()))?;
+    // stdin is always Some right after spawn() with Stdio::piped(); taking
+    // it and letting it drop after the copy closes the pipe, so the
+    // child's `cat` sees EOF and exits.
+    let mut stdin = child.stdin.take().expect("child stdin was piped");
+    std::io::copy(&mut file, &mut stdin).context("streaming file to child stdin")?;
+    drop(stdin);
+
+    child.wait().context("waiting for child process")
+}
 
 pub fn require_success(what: &str, status: ExitStatus) -> Result<()> {
     if !status.success() {

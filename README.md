@@ -11,7 +11,9 @@ See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) and
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design,
 [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md) for a real ideation-to-shipped
 run against an actual GitHub repo — including the three bugs it found —
-and [docs/decisions/0001-container-runtime-choice.md](docs/decisions/0001-container-runtime-choice.md)
+[docs/MIGRATING.md](docs/MIGRATING.md) for bringing an existing project
+(tested against keel's own repo) into a sandbox, and
+[docs/decisions/0001-container-runtime-choice.md](docs/decisions/0001-container-runtime-choice.md)
 for why this stays on `runc` rather than gVisor or Apple's native
 `container` tool.
 
@@ -27,6 +29,9 @@ cd cli && cargo build --release
 
 # create a project (add --github to also create a private GitHub repo)
 isolator new my-app --image isolator/node:latest
+
+# ...or bring an existing project in — history and all, no bind mount
+isolator import keel --from ~/Repos/keel
 
 # work inside it
 isolator shell my-app
@@ -63,20 +68,23 @@ isolator secrets unset my-app ANTHROPIC_API_KEY
 
 ## Testing
 
-- `cd cli && cargo test` — 50 unit tests: selftest's hardening evaluator
+- `cd cli && cargo test` — 59 unit tests: selftest's hardening evaluator
   (fed synthetic `docker inspect` JSON, including fail-safe-on-missing-data
   cases), manifest validation and round-tripping, compose template
   rendering, the tinyproxy access-log parser, the audit hash chain
   (append/verify, plus deliberately editing, deleting, reordering, and
-  forging entries to confirm `--verify` catches each one), and Keychain
-  service-name scoping.
+  forging entries to confirm `--verify` catches each one), Keychain
+  service-name scoping, and `isolator import`'s image auto-detection and
+  GitHub-URL parsing.
 - `./tests/e2e.sh` — end-to-end against real Docker containers: creates a
   throwaway project, runs `isolator selftest`'s static checks and active
   breakout battery, confirms egress allow/deny against github.com and
   example.com, confirms a `git push` attempt is tagged distinctly in the
   audit chain, folds the egress log in via `isolator audit`, verifies the
   chain, **live-tampers with the real chain.jsonl file and confirms
-  `--verify` detects it**, and exports an audit bundle. Requires the
+  `--verify` detects it**, exports an audit bundle, and imports a
+  throwaway local multi-branch repo end-to-end (image auto-detect, `keel
+  init`, both branches present, selftest still passes). Requires the
   images to already be built (`./images/build.sh`).
 
 ## Status
@@ -135,3 +143,15 @@ below):
 
   Still genuinely deferred: remote/centralized audit log shipping (no
   remote destination has been specified to ship to).
+
+- **Migration**: [`isolator import`](docs/MIGRATING.md) brings an
+  existing local project into a sandbox — history transferred via a
+  one-shot `git bundle` (never a bind mount), image auto-detected,
+  existing GitHub remote preserved. Verified against keel's own repo:
+  exact commit history, both branches, and its already-existing
+  `.keel/keel.toml` correctly left alone instead of overwritten. Found
+  and fixed two real bugs building it: `docker cp` silently fails against
+  a read-only rootfs even onto a writable tmpfs mount (fixed by streaming
+  through `docker exec`'s stdin instead), and cleaning up a stale
+  bundle-path `origin` remote was deleting every non-default branch along
+  with it (fixed by materializing branches locally first).

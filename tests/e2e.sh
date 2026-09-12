@@ -10,6 +10,8 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI="$ROOT/cli/target/debug/isolator"
 PROJECT="e2e-$$"
+IMPORT_PROJECT="e2e-import-$$"
+IMPORT_SRC="$(mktemp -d)/local-repo"
 FAILURES=0
 
 pass() { echo "  [PASS] $1"; }
@@ -53,6 +55,10 @@ cleanup() {
   "$CLI" down "$PROJECT" >/dev/null 2>&1 || true
   rm -rf "$HOME/.isolator/projects/$PROJECT"
   docker volume rm "${PROJECT}-workspace" "${PROJECT}-cache" >/dev/null 2>&1 || true
+  "$CLI" down "$IMPORT_PROJECT" >/dev/null 2>&1 || true
+  rm -rf "$HOME/.isolator/projects/$IMPORT_PROJECT"
+  docker volume rm "${IMPORT_PROJECT}-workspace" "${IMPORT_PROJECT}-cache" >/dev/null 2>&1 || true
+  rm -rf "$(dirname "$IMPORT_SRC")"
   rm -f /tmp/isolator-e2e-out.$$ /tmp/isolator-e2e-export-$$*.tar.gz
 }
 trap cleanup EXIT
@@ -146,6 +152,26 @@ if [ -n "${BUNDLE:-}" ] && tar -tzf "$BUNDLE" | grep -q "chain.jsonl"; then
 else
   fail "export bundle missing or does not contain chain.jsonl"
 fi
+
+step "import: an existing local repo (no bind mount, ever)"
+mkdir -p "$IMPORT_SRC"
+(cd "$IMPORT_SRC" && git init -q && git config user.email t@t.local && git config user.name t \
+  && echo '{}' > package.json && echo hi > README.md && git add -A && git commit -q -m init \
+  && git checkout -qb a-second-branch && git checkout -q -)
+IMPORT_OUT=$("$CLI" import "$IMPORT_PROJECT" --from "$IMPORT_SRC" 2>&1)
+IMPORT_EXIT=$?
+echo "$IMPORT_OUT" | sed 's/^/         /'
+if [ "$IMPORT_EXIT" -eq 0 ]; then pass "isolator import exits 0"; else fail "isolator import exits 0"; fi
+assert_contains "auto-detected the node image from package.json" "$IMPORT_OUT" "isolator/node:latest"
+assert_contains "ran keel init (no prior .keel/ in the source)" "$IMPORT_OUT" "keel is initialised"
+
+IMPORT_LOG=$("$CLI" run "$IMPORT_PROJECT" -- git log --oneline 2>&1)
+assert_contains "imported commit is present in the sandbox" "$IMPORT_LOG" "init"
+IMPORT_BRANCHES=$("$CLI" run "$IMPORT_PROJECT" -- git branch -a 2>&1)
+assert_contains "the second branch came across too (--all bundle)" "$IMPORT_BRANCHES" "a-second-branch"
+
+SELFTEST2_OUT=$("$CLI" selftest "$IMPORT_PROJECT" 2>&1)
+if [ $? -eq 0 ]; then pass "imported project passes selftest too"; else fail "imported project passes selftest too"; fi
 
 echo
 if [ "$FAILURES" -eq 0 ]; then

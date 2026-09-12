@@ -286,7 +286,7 @@
 
   <section id="features" class="wrap">
     <p class="kicker">What it actually does</p>
-    <h2>Eight controls, each one checked, not claimed</h2>
+    <h2>Every control here is checked, not claimed</h2>
     <p class="lede"><code>isolator selftest</code> asserts every one of these against a running
       container — a future change that weakens one is caught immediately,
       not discovered during an incident.</p>
@@ -353,6 +353,13 @@
         <p><code>isolator audit --export</code> bundles the audit chain plus keel's
           own evidence trail into one <code>tar.gz</code> — a reviewable record of
           exactly what happened, and when.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔀</div>
+        <h3>Migrate what you already have</h3>
+        <p><code>isolator import my-app --from ~/Repos/my-app</code> transfers full
+          history via a one-shot <code>git bundle</code> — never a bind mount —
+          and preserves an existing GitHub remote automatically.</p>
       </div>
     </div>
   </section>

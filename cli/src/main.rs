@@ -32,6 +32,26 @@ enum Command {
         #[arg(long)]
         github: bool,
     },
+    /// Bring an existing local git repo (e.g. one you're already working
+    /// on outside isolator) into a new sandboxed project. Transfers its
+    /// full history via a `git bundle` — the source directory is never
+    /// bind-mounted, only a one-shot bundle file crosses into the
+    /// container. Preserves an existing GitHub remote if there is one.
+    Import {
+        name: String,
+        /// Path to the existing local repo to import.
+        #[arg(long, value_name = "PATH")]
+        from: PathBuf,
+        /// isolator/base, isolator/node, isolator/rust, or isolator/python
+        /// — auto-detected from the source repo (Cargo.toml, package.json,
+        /// pyproject.toml/requirements.txt) if not given.
+        #[arg(long)]
+        image: Option<String>,
+        /// If the source repo has no GitHub remote, create one (asks for
+        /// confirmation). Ignored if it already has one.
+        #[arg(long)]
+        github: bool,
+    },
     /// Start (or restart) a project's sandbox + egress containers.
     Up { name: String },
     /// Stop a project's containers.
@@ -89,6 +109,7 @@ fn main() {
 
     let result = match cli.command {
         Command::New { name, image, github } => commands::new_cmd::run(&name, &image, github),
+        Command::Import { name, from, image, github } => commands::import_cmd::run(&name, &from, image, github),
         Command::Up { name } => commands::up::run(&name),
         Command::Down { name } => commands::down::run(&name),
         Command::Shell { name } => commands::shell::run(&name),

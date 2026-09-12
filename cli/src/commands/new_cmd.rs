@@ -1,6 +1,5 @@
 use crate::{audit, manifest, manifest::Manifest, paths, proc};
 use anyhow::{Context, Result};
-use std::io::{self, Write};
 
 pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
     manifest::validate_name(name)?;
@@ -13,25 +12,13 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
     let mut m = Manifest::new(name, image);
 
     if github {
-        print!(
-            "About to run `gh repo create {name} --private` on your GitHub account. Continue? [y/N] "
-        );
-        io::stdout().flush().ok();
-        let mut answer = String::new();
-        io::stdin().read_line(&mut answer)?;
-        if !answer.trim().eq_ignore_ascii_case("y") {
-            println!("Aborted — no GitHub repo created, no project scaffolded.");
-            return Ok(());
+        match super::create_github_repo_interactive(name)? {
+            Some(slug) => m.github_repo = Some(slug),
+            None => {
+                println!("Aborted — no GitHub repo created, no project scaffolded.");
+                return Ok(());
+            }
         }
-
-        let (status, whoami) = proc::run_capture("gh", &["api", "user", "-q", ".login"])?;
-        proc::require_success("gh api user", status)?;
-        let owner = whoami.trim();
-        let repo_slug = format!("{owner}/{name}");
-
-        let status = proc::run_inherit("gh", &["repo", "create", &repo_slug, "--private"])?;
-        proc::require_success("gh repo create", status)?;
-        m.github_repo = Some(repo_slug);
     }
 
     paths::ensure_project_dirs(name)?;
