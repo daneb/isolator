@@ -96,6 +96,118 @@ Note: whether `keel` invokes the `claude` driver (vs. falling back to
 - `cli/` — the `isolator` Rust CLI
 - `docs/` — threat model and architecture
 
+## Security
+
+### Why you can trust this
+
+Nothing here asks you to take isolator's word for it — every claim below
+is either checked by code you can read, or was verified live against a
+real container and written up with the evidence attached:
+
+- **The core guarantee is structural, not configurable.** No host bind
+  mount, no `docker.sock`, `cap_drop: ALL`, non-root, read-only rootfs,
+  a genuinely internal Docker network with no route out except through
+  the egress gateway — see [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md)
+  for why each one is there. `isolator selftest` re-checks all of it
+  against the *live* container (not just the manifest) every time you
+  run it, and fails safe: a corrupted or missing `docker inspect` field
+  reads as FAIL, never as "all clear" (`missing_fields_default_to_failing_safe`
+  in `cli/src/commands/selftest.rs`).
+- **The audit trail is tamper-evident, not just append-only.** Every
+  entry hash-chains to the one before it; `isolator audit --verify`
+  recomputes the whole chain and names exactly which entry was edited,
+  deleted, reordered, or forged if any was — proven with a live tamper
+  test in `tests/e2e.sh`, not just asserted.
+- **Every design decision that matters is written down, including the
+  ones that didn't go isolator's way.** ADR-0001 explains why gVisor and
+  Apple's `container` tool were both rejected (and exactly what would
+  need to change for that to flip); ADR-0002 explains why Claude Code
+  auth is an injected token rather than a mounted `~/.claude`, including
+  a proposal that *was* made and rejected during review. Nothing about
+  the threat model is asserted without the reasoning attached.
+- **CI enforces this on every push, and was itself verified for real** —
+  not just written and assumed to work. [docs/CI.md](docs/CI.md) covers
+  Rust lint/audit/deny, shellcheck, hadolint, gitleaks, a Trivy CVE scan
+  of every built image, and the full `tests/e2e.sh` battery; every job
+  was run against real GitHub Actions before being called done, and the
+  doc names the real bugs that surfaced doing it (a broken Bash tool
+  under the read-only rootfs, a silently-corrupted secret from a
+  triple-paste, an end-of-life Node runtime) rather than just the tools'
+  names.
+- **The repo is public.** The threat model, every hardening control, and
+  every known gap below are readable by anyone, including someone
+  deciding whether to attack it — the design has to hold up without
+  relying on obscurity, and that's a deliberate choice, not an oversight.
+
+### Open concerns — not yet closed out
+
+Being direct about what isn't solved is part of the trust case above,
+not separate from it:
+
+- **No branch protection on `master`.** CI reports pass/fail; nothing
+  currently *blocks* a push that fails it. Low-stakes for a single-
+  operator repo today, but worth fixing before this has other
+  committers.
+- **No scheduled re-scan.** Trivy/`cargo audit`/`cargo deny` only run
+  when code changes (`push`/`pull_request` triggers) — a CVE published
+  against an already-built, unchanged image or dependency tree goes
+  undetected until the next commit, which could be a long time.
+- **No vulnerability disclosure process.** Public repo, no `SECURITY.md`
+  — there's no documented way for someone who finds a real issue to
+  report it privately instead of opening a public issue.
+- **The shared-kernel risk is open, not mitigated.** Staying on `runc`
+  (ADR-0001) means a kernel/runc syscall escape isn't defended in depth
+  the way gVisor or per-container VMs would; the only current mitigation
+  is keeping Docker/OrbStack current. gVisor was rejected because this
+  platform can't run it today, not because the risk it addresses isn't
+  real.
+- **Debian CVEs with no fix yet stay in every image, indefinitely.**
+  `trivy --ignore-unfixed` is the right CI gate (see docs/CI.md for why),
+  but it deliberately doesn't fail on `affected`/`fix_deferred`/
+  `will_not_fix` findings — real, currently-unpatchable exposure that
+  the scan will never turn red for.
+- **Secret values are briefly visible in one subprocess's `argv`.**
+  `security add-generic-password -w <value>` (macOS Keychain writes) has
+  no non-interactive API that avoids this — documented as an accepted
+  tradeoff in `cli/src/secrets.rs`, not something isolator's own code
+  can route around.
+- **No image signing, provenance, or SBOM.** Nothing today lets you
+  cryptographically verify a built image matches this source, or hand
+  someone a machine-readable bill of materials for one.
+- **`--dangerously-skip-permissions` is the realistic way to run Claude
+  Code non-interactively inside the sandbox** (see
+  [docs/examples/ascii-banner](docs/examples/ascii-banner)) — that
+  trades human-in-the-loop tool approval for the container itself being
+  the trust boundary. Deliberate, and consistent with the threat model,
+  but worth naming plainly rather than leaving implicit.
+- **No independent review.** Everything above is self-assessed — this
+  project's own docs, ADRs, CI, and one real walkthrough. No third-party
+  penetration test or external security audit has been done.
+
+### Where this goes next
+
+- A scheduled (nightly/weekly) CI run of the Trivy/audit/deny jobs,
+  independent of code changes, to catch newly disclosed CVEs against
+  images that haven't otherwise changed.
+- Branch protection requiring CI to pass before merge, once this has
+  more than one committer.
+- A `SECURITY.md` with an actual disclosure contact/process.
+- Image signing (cosign/sigstore) and SBOM generation (syft), published
+  alongside each build.
+- Revisit gVisor if a self-managed Linux host is ever justified; revisit
+  Apple's `container` tool if
+  [apple/container#719](https://github.com/apple/container/discussions/719)
+  (the host-gateway egress leak) closes with a real fix.
+- A custom seccomp profile derived from real `strace` output of an
+  actual toolchain run, replacing the current default profile (already
+  flagged as deferred in `policies/README.md`).
+- A larger active breakout battery in `isolator selftest` — today's
+  three probes (canary domain, read-only fs, `docker.sock`) are a
+  starting point, not a ceiling.
+- Automated dependency updates (Dependabot/Renovate) for `Cargo.lock`
+  and the toolchain versions baked into each image, instead of relying
+  on someone remembering to bump them.
+
 ## Testing
 
 - `cd cli && cargo test` — 59 unit tests: selftest's hardening evaluator
