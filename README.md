@@ -296,9 +296,16 @@ into `cli/templates/`, since a published crate can't embed a file that
 lives outside its own package directory. `cargo publish --dry-run` now
 packages, compiles from the isolated package tarball, and gets to the
 upload step (aborted only because it's a dry run) — verified, not
-assumed. Actually running `cargo publish` (crates.io login, the
-irreversible part) is a deliberate manual step for whoever owns that
-account — not run from here. One caveat ADR-0004 is explicit about:
+assumed.
+
+`make publish` runs the real thing. It's still a deliberate manual step
+for whoever owns the crates.io account — nothing here runs it for
+you — but it exists now: it re-runs `publish-dry-run` first, then
+requires typing the literal word `publish` at a prompt (not just
+pressing enter) before calling `cargo publish` itself, since a crates.io
+version can be yanked afterward but never deleted or reused. Needs
+`cargo login` done once beforehand, with a token from
+https://crates.io/settings/tokens. One caveat ADR-0004 is explicit about:
 `cargo install moor` only brings the compiled binary, not `images/`,
 `proxy/`, or `policies/` — without those (from a full
 clone, with `./images/build.sh` run once) the installed binary has no

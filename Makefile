@@ -118,3 +118,11 @@ check: fmt-check lint test ## Fast checks only (no Docker, no external tools) �
 .PHONY: publish-dry-run
 publish-dry-run: ## cargo publish --dry-run — validates packaging without publishing anything
 	cd $(CLI_DIR) && cargo publish --dry-run
+
+.PHONY: publish
+publish: publish-dry-run ## cargo publish for real — irreversible (crates.io versions can be yanked, never deleted or reused). Runs the dry-run first, then asks for a typed confirmation. Requires `cargo login` already done.
+	@echo ""
+	@echo "publish-dry-run passed — see the \"Packaging ...\" line above for the exact name/version this will publish."
+	@echo "This next step is real and cannot be undone."
+	@read -p "Type 'publish' to continue: " confirm && [ "$$confirm" = "publish" ] || { echo "Aborted."; exit 1; }
+	cd $(CLI_DIR) && cargo publish
