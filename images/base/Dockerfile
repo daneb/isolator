@@ -66,6 +66,20 @@ RUN groupadd -g "${AGENT_GID}" agent \
 # Claude Code makes (it needs to write to /home/agent/.claude) under the
 # read-only, non-root, cap-drop-ALL rootfs below.
 
+# Default Claude Code to its own "auto" permission mode instead of
+# requiring --dangerously-skip-permissions for non-interactive `isolator
+# run` invocations. Auto mode has Claude assess each tool call for risky
+# actions and prompt injection itself, running what it judges lower-risk
+# and refusing the rest (verified directly: it created a file with no
+# flag needed, and refused `rm -rf /workspace/*` unprompted) — a second,
+# independent layer on top of the sandbox's own structural containment
+# (no bind mount, cap_drop: ALL, non-root, default-deny egress), not a
+# replacement for it. See docs/decisions/0003-claude-code-permissions.md.
+# Same volume-population mechanic as above: this has to exist in the
+# image *before* the claude-state volume's first mount, or the settings
+# file simply isn't there for a fresh project.
+COPY --chown=agent:agent claude-settings.json /home/agent/.claude/settings.json
+
 WORKDIR /workspace
 USER agent
 

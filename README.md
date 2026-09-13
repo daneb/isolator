@@ -18,7 +18,10 @@ for why this stays on `runc` rather than gVisor or Apple's native
 `container` tool, and
 [docs/decisions/0002-claude-code-authentication.md](docs/decisions/0002-claude-code-authentication.md)
 for why Claude Code auth is an injected token rather than a mounted
-`~/.claude`, and
+`~/.claude`,
+[docs/decisions/0003-claude-code-permissions.md](docs/decisions/0003-claude-code-permissions.md)
+for why every project defaults to Claude Code's own `auto` permission
+mode instead of `--dangerously-skip-permissions`, and
 [docs/examples/ascii-banner](docs/examples/ascii-banner) for a small
 utility built end to end by a real Claude Code agent running inside a
 sandbox — including two real bugs that run found and fixed, and the
@@ -118,6 +121,18 @@ real container and written up with the evidence attached:
   recomputes the whole chain and names exactly which entry was edited,
   deleted, reordered, or forged if any was — proven with a live tamper
   test in `tests/e2e.sh`, not just asserted.
+- **The agent's own permission checks are a second layer, not skipped.**
+  Every project defaults to Claude Code's `auto` permission mode
+  (`images/base/claude-settings.json`) instead of
+  `--dangerously-skip-permissions` — verified directly against a live
+  container: it creates files when asked and refuses a destructive
+  `rm -rf` unprompted, with no human needed to answer a prompt. See
+  [ADR-0003](docs/decisions/0003-claude-code-permissions.md). That
+  means a compromised or manipulated agent run (the real risk category
+  incidents like prompt-injection-driven tool abuse fall into) has to
+  get past *two* independent things, not one: Claude's own per-call
+  risk judgment, and the sandbox's structural containment below if that
+  judgment is ever fooled.
 - **Every design decision that matters is written down, including the
   ones that didn't go isolator's way.** ADR-0001 explains why gVisor and
   Apple's `container` tool were both rejected (and exactly what would
@@ -174,12 +189,15 @@ not separate from it:
 - **No image signing, provenance, or SBOM.** Nothing today lets you
   cryptographically verify a built image matches this source, or hand
   someone a machine-readable bill of materials for one.
-- **`--dangerously-skip-permissions` is the realistic way to run Claude
-  Code non-interactively inside the sandbox** (see
-  [docs/examples/ascii-banner](docs/examples/ascii-banner)) — that
-  trades human-in-the-loop tool approval for the container itself being
-  the trust boundary. Deliberate, and consistent with the threat model,
-  but worth naming plainly rather than leaving implicit.
+- **Auto mode's risk judgment is Anthropic's to maintain, not isolator's
+  to verify per-release.** [ADR-0003](docs/decisions/0003-claude-code-permissions.md)
+  replaced the blanket `--dangerously-skip-permissions` default with
+  Claude Code's own `auto` permission mode — a real improvement, checked
+  directly against a live container — but that mode's actual judgment
+  calls are a model behavior isolator doesn't control and hasn't
+  re-verified across every future Claude Code version. An operator can
+  still pass `--dangerously-skip-permissions` explicitly for a given run
+  if they want the old behavior back.
 - **No independent review.** Everything above is self-assessed — this
   project's own docs, ADRs, CI, and one real walkthrough. No third-party
   penetration test or external security audit has been done.
@@ -207,6 +225,10 @@ not separate from it:
 - Automated dependency updates (Dependabot/Renovate) for `Cargo.lock`
   and the toolchain versions baked into each image, instead of relying
   on someone remembering to bump them.
+- Re-verify `auto` permission mode's actual behavior (does it still
+  create files when asked, still refuse a destructive command
+  unprompted) whenever the base image bumps its Claude Code version —
+  it's a model behavior, not a pinned rule isolator controls.
 
 ## Testing
 
