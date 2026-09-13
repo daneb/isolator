@@ -1,9 +1,14 @@
 # Walkthrough: ideation to shipped
 
 This is not a hypothetical — every command below was actually run against
-a real GitHub repository (`daneb/isolator-sample-app`, private) as the
-Phase 8 acceptance test for moor. Two real bugs surfaced doing this
-and are called out below, fixed in the same commit as this doc.
+a real GitHub repository (`daneb/isolator-sample-app` at the time, private;
+renamed to [daneb/moor-sample-app](https://github.com/daneb/moor-sample-app)
+along with this project itself — see
+[ADR-0004](decisions/0004-rename-to-moor.md)) as the Phase 8 acceptance
+test for moor. Two real bugs surfaced doing this and are called out
+below, fixed in the same commit as this doc. The commands below still
+show `isolator-sample-app` as the *local* project name, since that
+wasn't renamed — only the GitHub repository it points at was.
 
 ## 0. Before you start
 

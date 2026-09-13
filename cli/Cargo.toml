@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Control CLI for containerized, keel-driven AI development sandboxes"
 license = "MIT"
-repository = "https://github.com/daneb/isolator"
+repository = "https://github.com/daneb/moor"
 
 [[bin]]
 name = "moor"

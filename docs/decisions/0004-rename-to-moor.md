@@ -70,13 +70,13 @@ four letters.
   `"../templates/project.compose.yml.tmpl"`, relative to
   `cli/src/compose.rs`. One canonical copy, inside the package, not a
   duplicate kept in sync by hand.
-- The GitHub repository itself (`daneb/isolator`) is **not** renamed,
-  nor is the real, separate `daneb/isolator-sample-app` repository from
-  [docs/WALKTHROUGH.md](../WALKTHROUGH.md) — both are real external
+- The GitHub repository itself (`daneb/isolator`) and the real, separate
+  `daneb/isolator-sample-app` repository from
+  [docs/WALKTHROUGH.md](../WALKTHROUGH.md) were, at the time of this
+  decision, deliberately left un-renamed — both are real external
   artifacts with their own URLs, unrelated to what the CLI binary is
-  called. `isolator-sample-app` the *project name* still appears
-  verbatim throughout that walkthrough, since it refers to the real
-  thing, not the tool.
+  called. **Superseded the same day — see Update below:** the operator
+  renamed both on GitHub anyway, independently of this ADR.
 
 ## Consequences
 
@@ -101,3 +101,28 @@ four letters.
   `./images/build.sh` having been run from a full clone), the installed
   binary has no images to build sandboxes from. Publishing the crate
   doesn't change this; it was true before the rename too.
+
+## Update (same day): the GitHub repositories were renamed too
+
+The operator renamed both `daneb/isolator` → `daneb/moor` and
+`daneb/isolator-sample-app` → `daneb/moor-sample-app` on GitHub,
+independently of the "not renamed" call above — confirmed by querying
+each old name against the GitHub API and reading back the redirected
+`full_name`, not assumed. Updated to match:
+
+- This repo's own `origin` remote (`git remote set-url`).
+- `cli/Cargo.toml`'s `repository` field.
+- Every doc link pointing at the old URLs (README, `docs/index.html`,
+  this ADR).
+- The `isolator-sample-app` *local* project's manifest `github_repo`
+  field and its sandbox's own internal git `origin` remote (verified
+  with a real `git fetch` against the new URL afterward) — chosen over
+  also renaming the local project itself, since GitHub's redirect made
+  that optional and the operator preferred to leave the local project
+  name as-is.
+
+`docs/WALKTHROUGH.md`'s command examples still show `isolator-sample-app`
+as the local project name, since that's what was actually typed at the
+time and remains the real local name today — only the GitHub repository
+it points at changed.
+
