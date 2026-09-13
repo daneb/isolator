@@ -231,6 +231,7 @@
     <div class="brand"><span class="dot"></span> moor</div>
     <nav class="nav-links">
       <a href="#features">Features</a>
+      <a href="#recipes">Recipes</a>
       <a href="#architecture">Architecture</a>
       <a href="#use-cases">Use cases</a>
       <a href="#proof">Proof</a>
@@ -284,6 +285,44 @@
     </div>
   </section>
 
+  <section id="recipes" class="wrap">
+    <p class="kicker">The big value add</p>
+    <h2>Write down what you want. The agent loop runs — until it needs you.</h2>
+    <p class="lede">Driving keel by hand means typing a long, exact sequence
+      every time: <code>spec new</code> → author it → <code>gate g0</code> →
+      <code>approve</code> → <code>plan</code> → author it →
+      <code>gate g1</code> → <code>approve</code> → <code>run</code> →
+      <code>approve --stage merge</code>. <code>moor recipe</code> takes one
+      loosely-worded description of the outcome and drives that whole
+      sequence itself — including fixing its own failing gates — stopping
+      only at the points a human should actually decide something.</p>
+    <div class="term qs-term">
+      <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span></div>
+      <div class="term-body">
+        <div class="l"><span class="prompt">$</span> moor recipe my-app greet-function.recipe.md</div>
+        <div class="l out">==&gt; scaffolded .keel/specs/greet-function/ — authoring the spec now</div>
+        <div class="l ok">G0 pass — 16 passed, 0 failed, 0 blocked</div>
+        <div class="l out">==&gt; stage: spec_approval — PAUSED for human approval</div>
+        <div class="l out"></div>
+        <div class="l out"># ...approve, then re-run the exact same command...</div>
+        <div class="l"><span class="prompt">$</span> moor recipe my-app greet-function.recipe.md</div>
+        <div class="l out">FAIL task-files-in-scope — asking the agent to fix exactly that</div>
+        <div class="l out">FAIL wave-isolation — asking the agent to fix exactly that</div>
+        <div class="l ok">G1 pass — 17 passed, 0 failed, 0 blocked</div>
+        <div class="l out">==&gt; stage: plan_approval — PAUSED for human approval</div>
+      </div>
+    </div>
+    <p class="arch-note">Autonomous, not unchecked: a failing spec/plan gate
+      gets a bounded self-correction loop restricted to <code>Write</code>/
+      <code>Edit</code> only — the agent can fix exactly what the gate named,
+      never run arbitrary commands to do it. The real build step
+      (<code>keel run</code>) gets no auto-retry beyond a small attempt cap —
+      that step has full tool access, so it stops and hands a human the
+      evidence instead of iterating unattended. See
+      <a href="https://github.com/daneb/moor/blob/master/docs/decisions/0005-recipe.md">ADR-0005</a>
+      for the full design and a real run's transcript, gate failures and all.</p>
+  </section>
+
   <section id="features" class="wrap">
     <p class="kicker">What it actually does</p>
     <h2>Every control here is checked, not claimed</h2>
@@ -325,14 +364,6 @@
         <p>Spec → plan → build → gate → merge, with a runnable oracle behind
           every acceptance criterion. Real build/test/lint commands, executed
           inside the sandbox, not simulated.</p>
-      </div>
-      <div class="card">
-        <div class="icon">📝</div>
-        <h3>Describe an outcome, not a command sequence</h3>
-        <p><code>moor recipe</code> takes one loosely-worded goal and drives
-          keel's whole spec → gate → plan → gate → run pipeline, pausing only
-          at the same human checkpoints keel already defines — re-run the
-          same command to resume after approving.</p>
       </div>
       <div class="card">
         <div class="icon">🔑</div>
