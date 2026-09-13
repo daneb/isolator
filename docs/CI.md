@@ -1,5 +1,11 @@
 # CI: security and quality scanning
 
+Run any of this locally with `make` — `make help` lists every target,
+`make security` runs the scans, `make ci` runs everything below
+(including the real `tests/e2e.sh`) in one shot. The `Makefile` targets
+and this workflow are meant to stay in lockstep: if you add a check to
+one, add it to the other.
+
 `.github/workflows/ci.yml` runs on every push/PR to `master`. Every job
 below was actually run — locally, via [`act`](https://github.com/nektos/act)
 executing the real workflow file against real Docker — before being

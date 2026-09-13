@@ -98,6 +98,8 @@ Note: whether `keel` invokes the `claude` driver (vs. falling back to
 - `policies/` — the hardening baseline and the manifest schema, documented
 - `cli/` — the `isolator` Rust CLI
 - `docs/` — threat model and architecture
+- `Makefile` — local dev tooling (`make help`); mirrors
+  `.github/workflows/ci.yml` so `make ci` runs the same checks locally
 
 ## Security
 
@@ -253,6 +255,38 @@ not separate from it:
 - Both of the above, plus security/quality scanning (Rust lint/audit/deny,
   shellcheck, hadolint, gitleaks, Trivy image CVE scans), run in CI on
   every push/PR — see [docs/CI.md](docs/CI.md).
+- `make help` lists every local dev target — `make check` for a fast
+  fmt/clippy/test pass, `make security` for the full scan suite,
+  `make ci` to run everything CI runs (including the real `tests/e2e.sh`)
+  in one shot. Each security target checks its tool is installed and
+  says how to get it (`brew install ...`) rather than failing on a bare
+  "command not found." Every target here was run for real before being
+  documented, not just written.
+
+## Development
+
+```bash
+make help          # list every target
+make check          # fast: fmt-check, clippy, cargo test — no Docker needed
+make security        # cargo audit/deny, shellcheck, hadolint, gitleaks, trivy
+make ci               # everything above plus the real tests/e2e.sh — the full CI replica
+make build            # cargo build (debug)
+make release          # cargo build --release
+make install          # cargo install the CLI to ~/.cargo/bin
+make clean            # cargo clean
+```
+
+`make publish-dry-run` runs `cargo publish --dry-run` — today it fails
+immediately, on purpose: `cli/Cargo.toml` has `publish = false`, set
+deliberately so `cargo deny`'s license check doesn't need an invented
+license for a crate that was never meant to be published. Reversing
+that means picking a real OSS license and adding a `LICENSE` file — not
+done unilaterally here. Separately, the crate name `isolator` is already
+taken on crates.io by an unrelated package, so publishing under this
+name isn't possible regardless. Actually publishing would also mean
+deciding what "publish" should include — `cargo install` only brings
+the compiled binary, not `images/`, `compose/`, `proxy/`, or
+`policies/`, without which the binary can't do anything useful.
 
 ## Status
 
