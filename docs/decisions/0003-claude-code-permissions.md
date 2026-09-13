@@ -5,9 +5,9 @@
 
 ## Context
 
-Running Claude Code non-interactively — `isolator run <project> -- claude
+Running Claude Code non-interactively — `moor run <project> -- claude
 --print "..."`, the pattern `keel` itself uses to drive an agent, and the
-only way to run it through `isolator run` at all (no TTY is attached to
+only way to run it through `moor run` at all (no TTY is attached to
 a `docker exec` invocation that runs one command and returns) — hits
 Claude Code's permission system with nobody available to answer a
 prompt. With no flag, every tool call is silently refused.
@@ -39,10 +39,10 @@ own containment standing between it and whatever it attempts. That
 containment is real and substantial — but it's meant to be the second
 line, not the only one.
 
-### 2. A curated `--allowedTools`/`--disallowedTools` list, isolator-maintained (rejected)
+### 2. A curated `--allowedTools`/`--disallowedTools` list, moor-maintained (rejected)
 
 Considered and rejected: a hand-written allow/deny list would need
-isolator to track Claude Code's tool surface indefinitely and would
+moor to track Claude Code's tool surface indefinitely and would
 rot every time that surface changes — exactly the kind of
 configuration-based control this project has otherwise avoided in favor
 of structural ones (see the README's Security section: "the core
@@ -56,9 +56,9 @@ default permission mode outside of headless-with-a-flag contexts.
 Verified directly, not assumed: inside a live sandbox container, with no
 flag at all beyond the settings file, it created a file when asked, and
 refused `rm -rf /workspace/*` unprompted, describing exactly why. It
-runs non-interactively (no TTY needed) and requires no isolator-specific
+runs non-interactively (no TTY needed) and requires no moor-specific
 tool-list maintenance — the risk judgment is Anthropic's to keep current
-with the tool surface, not isolator's.
+with the tool surface, not moor's.
 
 ## Decision
 
@@ -66,7 +66,7 @@ with the tool surface, not isolator's.
 "auto"}}`) is copied to `/home/agent/.claude/settings.json` in
 `images/base/Dockerfile`, so every project gets this as its default
 without any per-invocation flag. `--dangerously-skip-permissions` is no
-longer isolator's documented or demonstrated pattern anywhere.
+longer moor's documented or demonstrated pattern anywhere.
 
 ## Consequences
 
@@ -77,11 +77,11 @@ longer isolator's documented or demonstrated pattern anywhere.
   ever fooled.
 - An operator who genuinely wants the old blanket-bypass behavior for a
   specific run can still pass `--dangerously-skip-permissions`
-  explicitly via `isolator run <project> -- claude --print
+  explicitly via `moor run <project> -- claude --print
   --dangerously-skip-permissions "..."` — this changes the *default*,
   not what's possible.
 - Auto mode's risk judgment is a model behavior Anthropic maintains and
-  can change between Claude Code versions; isolator doesn't control or
+  can change between Claude Code versions; moor doesn't control or
   pin that logic, only the default that selects it.
 - `docs/examples/ascii-banner` was rebuilt and re-verified under this
   default (no bypass flag) to keep that example honest against the

@@ -12,7 +12,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "isolator", about = "Containerized, keel-driven AI sandboxes")]
+#[command(name = "moor", about = "Containerized, keel-driven AI sandboxes")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -24,8 +24,8 @@ enum Command {
     /// GitHub repo, `keel init` inside the sandbox.
     New {
         name: String,
-        /// isolator/base, isolator/node, isolator/rust, or isolator/python
-        #[arg(long, default_value = "isolator/base:latest")]
+        /// moor/base, moor/node, moor/rust, or moor/python
+        #[arg(long, default_value = "moor/base:latest")]
         image: String,
         /// Also create a private GitHub repo via `gh repo create` (asks
         /// for confirmation before doing anything).
@@ -33,7 +33,7 @@ enum Command {
         github: bool,
     },
     /// Bring an existing local git repo (e.g. one you're already working
-    /// on outside isolator) into a new sandboxed project. Transfers its
+    /// on outside moor) into a new sandboxed project. Transfers its
     /// full history via a `git bundle` — the source directory is never
     /// bind-mounted, only a one-shot bundle file crosses into the
     /// container. Preserves an existing GitHub remote if there is one.
@@ -42,7 +42,7 @@ enum Command {
         /// Path to the existing local repo to import.
         #[arg(long, value_name = "PATH")]
         from: PathBuf,
-        /// isolator/base, isolator/node, isolator/rust, or isolator/python
+        /// moor/base, moor/node, moor/rust, or moor/python
         /// — auto-detected from the source repo (Cargo.toml, package.json,
         /// pyproject.toml/requirements.txt) if not given.
         #[arg(long)]
@@ -86,7 +86,7 @@ enum Command {
     Selftest { name: String },
     /// Manage a project's secrets in the macOS Keychain, as an
     /// alternative to exporting them into your shell before every
-    /// `isolator up`/`new`.
+    /// `moor up`/`new`.
     #[command(subcommand)]
     Secrets(SecretsCommand),
 }
@@ -98,7 +98,7 @@ enum SecretsCommand {
     Set { project: String, name: String },
     /// Remove a secret from the Keychain.
     Unset { project: String, name: String },
-    /// Show where each of the project's declared secrets (isolator.yaml's
+    /// Show where each of the project's declared secrets (moor.yaml's
     /// `secrets:` list) would currently be resolved from: your shell's
     /// environment, the Keychain, or neither.
     Status { project: String },

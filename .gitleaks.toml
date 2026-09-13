@@ -1,4 +1,4 @@
-title = "isolator gitleaks config"
+title = "moor gitleaks config"
 
 # Inherit gitleaks' full default rule set — this file only narrows false
 # positives, it never disables real detection.
@@ -8,7 +8,8 @@ useDefault = true
 [allowlist]
 description = "Deliberately fake secrets: test fixtures for audit::redact's own unit tests, and one placeholder in an example config — never real credentials."
 regexes = [
-  '''isolator-canary-186c2e4f9a1b2c3-4242''', # policies/isolator.manifest.example.yaml — illustrative sample value, not a real project's canary token
+  '''moor-canary-186c2e4f9a1b2c3-4242''',     # policies/moor.manifest.example.yaml — illustrative sample value, not a real project's canary token
+  '''isolator-canary-186c2e4f9a1b2c3-4242''', # same, under this project's pre-rename name (ADR-0004) — still present in git history, which is immutable
   '''sk-super-secret-value-123''',            # cli/src/audit.rs — fake token the redact() unit tests assert gets scrubbed
   '''ghp_abcdef1234567890''',                 # cli/src/audit.rs — fake token the redact_argv() unit test asserts gets scrubbed
 ]

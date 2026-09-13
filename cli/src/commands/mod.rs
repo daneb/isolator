@@ -41,7 +41,7 @@ pub fn create_github_repo_interactive(name: &str) -> Result<Option<String>> {
 }
 
 /// Re-render compose.yml from the current manifest and bring the pair up.
-/// Called by both `new` and `up` so a hand-edited isolator.yaml always
+/// Called by both `new` and `up` so a hand-edited moor.yaml always
 /// takes effect on the next start, not just at creation time.
 pub fn compose_up(name: &str) -> Result<()> {
     let m = Manifest::load(&paths::manifest_path(name)?)?;
@@ -67,7 +67,7 @@ pub fn compose_up(name: &str) -> Result<()> {
 pub fn compose_down(name: &str) -> Result<()> {
     let compose_path = paths::compose_path(name)?;
     if !compose_path.exists() {
-        anyhow::bail!("no compose.yml for project '{name}' — has `isolator new` been run?");
+        anyhow::bail!("no compose.yml for project '{name}' — has `moor new` been run?");
     }
     let compose_path_str = compose_path.to_string_lossy().to_string();
     let status = crate::proc::run_inherit(

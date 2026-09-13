@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 /// Show (and optionally verify or export) a project's audit trail.
 /// Always folds in any new egress-gateway log lines first, so what's
-/// printed reflects what's actually happened, not just what `isolator
+/// printed reflects what's actually happened, not just what `moor
 /// run`/`shell` happened to observe directly.
 pub fn run(name: &str, verify: bool, export: Option<PathBuf>) -> Result<()> {
     let m = Manifest::load(&paths::manifest_path(name)?)?;
@@ -52,7 +52,7 @@ pub fn run(name: &str, verify: bool, export: Option<PathBuf>) -> Result<()> {
 
     println!(
         "\nkeel's own exported run bundles (.keel/bundles/, from `keel export`)\n\
-         live inside the workspace volume, not here — use `isolator audit\n\
+         live inside the workspace volume, not here — use `moor audit\n\
          {name} --export` to pull everything (this chain + keel's bundles)\n\
          into one archive."
     );
@@ -75,7 +75,7 @@ fn export_bundle(name: &str, m: &Manifest, out_dir: PathBuf) -> Result<PathBuf> 
     if chain_path.exists() {
         std::fs::copy(&chain_path, staging.join("chain.jsonl"))?;
     }
-    std::fs::copy(paths::manifest_path(name)?, staging.join("isolator.yaml"))?;
+    std::fs::copy(paths::manifest_path(name)?, staging.join("moor.yaml"))?;
 
     // Best-effort: keel's own exported run bundles (`keel export <run>`
     // writes each as .keel/bundles/keel-<run-id>.tar.gz), if this project

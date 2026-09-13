@@ -3,18 +3,18 @@ use anyhow::{Context, Result};
 use std::path::Path;
 
 /// Look at the top level of an existing local project and guess which
-/// isolator image fits it. Pure — no filesystem side effects beyond the
+/// moor image fits it. Pure — no filesystem side effects beyond the
 /// read-only existence checks — so it's unit-testable against a fixture
 /// directory without touching Docker.
 fn detect_image(from: &Path) -> &'static str {
     if from.join("Cargo.toml").exists() {
-        "isolator/rust:latest"
+        "moor/rust:latest"
     } else if from.join("package.json").exists() {
-        "isolator/node:latest"
+        "moor/node:latest"
     } else if from.join("pyproject.toml").exists() || from.join("requirements.txt").exists() {
-        "isolator/python:latest"
+        "moor/python:latest"
     } else {
-        "isolator/base:latest"
+        "moor/base:latest"
     }
 }
 
@@ -22,7 +22,7 @@ fn detect_image(from: &Path) -> &'static str {
 /// forms (`https://github.com/owner/repo(.git)`,
 /// `git@github.com:owner/repo(.git)`, `ssh://git@github.com/owner/repo(.git)`).
 /// Returns `None` for anything else (a non-GitHub remote, GitLab, a local
-/// path) — isolator's manifest only tracks a `github_repo` field
+/// path) — moor's manifest only tracks a `github_repo` field
 /// specifically, so a non-GitHub remote is left for the operator to note
 /// themselves rather than guessed at.
 fn parse_github_repo_slug(url: &str) -> Option<String> {
@@ -52,7 +52,7 @@ pub fn run(name: &str, from: &Path, image: Option<String>, github: bool) -> Resu
         .with_context(|| format!("'{}' does not exist", from.display()))?;
     if !from.join(".git").exists() {
         anyhow::bail!(
-            "'{}' is not a git repository (no .git) — isolator only imports version-controlled projects",
+            "'{}' is not a git repository (no .git) — moor only imports version-controlled projects",
             from.display()
         );
     }
@@ -93,7 +93,7 @@ pub fn run(name: &str, from: &Path, image: Option<String>, github: bool) -> Resu
 
     paths::ensure_project_dirs(name)?;
     m.save(&paths::manifest_path(name)?)
-        .context("writing isolator.yaml")?;
+        .context("writing moor.yaml")?;
 
     println!("==> starting sandbox + egress for '{name}'");
     super::compose_up(name)?;
@@ -135,7 +135,7 @@ pub fn run(name: &str, from: &Path, image: Option<String>, github: bool) -> Resu
             Ok(s) => {
                 audit::log_exec(name, &m, "exec", &["keel".into(), "init".into()], s.code())?;
                 if !s.success() {
-                    println!("   note: `keel init` did not exit cleanly — check with `isolator shell {name}`");
+                    println!("   note: `keel init` did not exit cleanly — check with `moor shell {name}`");
                 }
             }
             Err(e) => println!("   note: could not run `keel init` automatically: {e}"),
@@ -143,7 +143,7 @@ pub fn run(name: &str, from: &Path, image: Option<String>, github: bool) -> Resu
     }
 
     println!(
-        "\n'{name}' is up, imported from {}. Manifest: {}\nNext: isolator shell {name}",
+        "\n'{name}' is up, imported from {}. Manifest: {}\nNext: moor shell {name}",
         from.display(),
         paths::manifest_path(name)?.display()
     );
@@ -255,7 +255,7 @@ fn import_history(name: &str, m: &Manifest, from: &Path, real_remote: Option<&st
             "docker",
             &["exec", &container, "git", "remote", "remove", "origin"],
         );
-        println!("   no remote configured — set one with `isolator run {name} -- git remote add origin <url>` when ready");
+        println!("   no remote configured — set one with `moor run {name} -- git remote add origin <url>` when ready");
     }
 
     Ok(())
@@ -275,7 +275,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("isolator-import-test-{label}-{nanos}"));
+        let dir = std::env::temp_dir().join(format!("moor-import-test-{label}-{nanos}"));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -284,7 +284,7 @@ mod tests {
     fn detects_rust_project() {
         let dir = temp_dir("rust");
         touch(&dir, "Cargo.toml");
-        assert_eq!(detect_image(&dir), "isolator/rust:latest");
+        assert_eq!(detect_image(&dir), "moor/rust:latest");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -292,7 +292,7 @@ mod tests {
     fn detects_node_project() {
         let dir = temp_dir("node");
         touch(&dir, "package.json");
-        assert_eq!(detect_image(&dir), "isolator/node:latest");
+        assert_eq!(detect_image(&dir), "moor/node:latest");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -300,7 +300,7 @@ mod tests {
     fn detects_python_project_via_pyproject() {
         let dir = temp_dir("py-pyproject");
         touch(&dir, "pyproject.toml");
-        assert_eq!(detect_image(&dir), "isolator/python:latest");
+        assert_eq!(detect_image(&dir), "moor/python:latest");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -308,14 +308,14 @@ mod tests {
     fn detects_python_project_via_requirements_txt() {
         let dir = temp_dir("py-reqs");
         touch(&dir, "requirements.txt");
-        assert_eq!(detect_image(&dir), "isolator/python:latest");
+        assert_eq!(detect_image(&dir), "moor/python:latest");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn falls_back_to_base_when_nothing_recognized() {
         let dir = temp_dir("empty");
-        assert_eq!(detect_image(&dir), "isolator/base:latest");
+        assert_eq!(detect_image(&dir), "moor/base:latest");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -327,7 +327,7 @@ mod tests {
         let dir = temp_dir("mixed");
         touch(&dir, "Cargo.toml");
         touch(&dir, "package.json");
-        assert_eq!(detect_image(&dir), "isolator/rust:latest");
+        assert_eq!(detect_image(&dir), "moor/rust:latest");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

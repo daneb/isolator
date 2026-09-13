@@ -1,13 +1,13 @@
-# Example ~/.isolator/projects/<name>/isolator.yaml
-# Created by `isolator new`, editable by hand afterwards. Changing this
+# Example ~/.moor/projects/<name>/moor.yaml
+# Created by `moor new`, editable by hand afterwards. Changing this
 # file is the whole "permissions" surface for a project — track it in
 # whatever way you track config that matters (it's not committed to the
 # project's own repo, since the repo runs inside the sandbox this file
 # constrains).
 
 name: sample-app
-image: isolator/node:latest   # isolator/base | isolator/node | isolator/rust | isolator/python
-github_repo: daneb/sample-app # set by `isolator new --github`, empty if none
+image: moor/node:latest   # moor/base | moor/node | moor/rust | moor/python
+github_repo: daneb/sample-app # set by `moor new --github`, empty if none
 
 egress:
   allow:
@@ -22,21 +22,21 @@ resources:
   pids: 512       # docker compose `pids_limit`
 
 secrets:
-  # Names only — actual values are supplied at `isolator up`/`run`/`shell`
+  # Names only — actual values are supplied at `moor up`/`run`/`shell`
   # time, resolved from your shell's environment first, then the macOS
-  # Keychain (`isolator secrets set <project> <name>` stores one; `isolator
+  # Keychain (`moor secrets set <project> <name>` stores one; `moor
   # secrets status <project>` shows where each currently resolves from).
   # Never stored in this file or the image.
   - ANTHROPIC_API_KEY
   # Alternative to ANTHROPIC_API_KEY for a claude.ai subscription instead
   # of metered API credits — generate once on the host with
-  # `claude setup-token`, then `isolator secrets set <project>
+  # `claude setup-token`, then `moor secrets set <project>
   # CLAUDE_CODE_OAUTH_TOKEN`. The `claude` CLI inside the sandbox prefers
   # this over ANTHROPIC_API_KEY when both are set.
   - CLAUDE_CODE_OAUTH_TOKEN
   - GITHUB_TOKEN
 
-# Generated once by `isolator new`, never hand-edited. Injected into the
-# sandbox as ISOLATOR_CANARY_TOKEN — see cli/src/canary.rs and
+# Generated once by `moor new`, never hand-edited. Injected into the
+# sandbox as MOOR_CANARY_TOKEN — see cli/src/canary.rs and
 # proxy/README.md for what it does and doesn't catch.
-canary_token: isolator-canary-186c2e4f9a1b2c3-4242
+canary_token: moor-canary-186c2e4f9a1b2c3-4242

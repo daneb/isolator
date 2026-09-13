@@ -1,10 +1,14 @@
 use crate::manifest::Manifest;
 
-const TEMPLATE: &str = include_str!("../../compose/project.compose.yml.tmpl");
+const TEMPLATE: &str = include_str!("../templates/project.compose.yml.tmpl");
 
 /// Render the per-project docker-compose file from the manifest. Pure
-/// string substitution — no templating engine — so `compose/project.compose.yml.tmpl`
-/// stays the readable ground truth for exactly what gets applied.
+/// string substitution — no templating engine — so
+/// `cli/templates/project.compose.yml.tmpl` stays the readable ground
+/// truth for exactly what gets applied. Lives inside the crate directory
+/// (not a top-level `compose/`, which it did before ADR-0004) because
+/// `include_str!` can't reach outside the package a published crate
+/// actually ships.
 pub fn render(m: &Manifest) -> String {
     let secret_env_lines = if m.secrets.is_empty() {
         String::new()
@@ -40,7 +44,7 @@ mod tests {
         // Checked against the specific tokens `render()` substitutes, not
         // a blanket "{{" scan — the template's own header comment uses
         // that literal string to explain the mechanism.
-        let m = Manifest::new("sample-app", "isolator/node:latest");
+        let m = Manifest::new("sample-app", "moor/node:latest");
         let rendered = render(&m);
         for token in [
             "{{PROJECT_NAME}}",
@@ -61,7 +65,7 @@ mod tests {
 
     #[test]
     fn project_name_is_substituted_everywhere_it_appears() {
-        let m = Manifest::new("sample-app", "isolator/node:latest");
+        let m = Manifest::new("sample-app", "moor/node:latest");
         let rendered = render(&m);
         assert!(rendered.contains("sample-app-sandbox"));
         assert!(rendered.contains("sample-app-egress"));
@@ -71,7 +75,7 @@ mod tests {
 
     #[test]
     fn secrets_become_compose_default_empty_env_lines() {
-        let mut m = Manifest::new("sample-app", "isolator/node:latest");
+        let mut m = Manifest::new("sample-app", "moor/node:latest");
         m.secrets = vec![
             "ANTHROPIC_API_KEY".to_string(),
             "CLAUDE_CODE_OAUTH_TOKEN".to_string(),
@@ -85,7 +89,7 @@ mod tests {
 
     #[test]
     fn no_secrets_still_renders_valid_yaml_shape() {
-        let mut m = Manifest::new("sample-app", "isolator/node:latest");
+        let mut m = Manifest::new("sample-app", "moor/node:latest");
         m.secrets = vec![];
         let rendered = render(&m);
         assert!(!rendered.contains("{{SECRET_ENV_LINES}}"));
@@ -93,7 +97,7 @@ mod tests {
 
     #[test]
     fn extra_allow_domains_joined_with_commas() {
-        let mut m = Manifest::new("sample-app", "isolator/node:latest");
+        let mut m = Manifest::new("sample-app", "moor/node:latest");
         m.egress.allow = vec![
             "registry.npmjs.org".to_string(),
             "example-registry.dev".to_string(),
@@ -109,7 +113,7 @@ mod tests {
         // Guards the "no host bind mount, ever" decision at the compose
         // level: every volumes: entry must reference a named volume
         // (declared under top-level `volumes:`), never a host path.
-        let m = Manifest::new("sample-app", "isolator/base:latest");
+        let m = Manifest::new("sample-app", "moor/base:latest");
         let rendered = render(&m);
         assert!(rendered.contains("workspace:/workspace"));
         assert!(rendered.contains("cache:/home/agent/.cache"));
@@ -120,7 +124,7 @@ mod tests {
 
     #[test]
     fn sandbox_network_is_internal_only() {
-        let m = Manifest::new("sample-app", "isolator/base:latest");
+        let m = Manifest::new("sample-app", "moor/base:latest");
         let rendered = render(&m);
         assert!(rendered.contains("internal: true"));
     }

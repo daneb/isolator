@@ -2,7 +2,7 @@
 
 A default-deny forward proxy (tinyproxy) that is the only route out of a
 project sandbox. `entrypoint.sh` renders `/etc/tinyproxy/filter` from
-`allowlist.base.txt` plus the project's `isolator.yaml` `egress.allow`
+`allowlist.base.txt` plus the project's `moor.yaml` `egress.allow`
 entries (passed in as `EXTRA_ALLOW_DOMAINS`) before starting tinyproxy.
 
 ## What this does and doesn't see

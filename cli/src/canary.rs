@@ -5,12 +5,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// deny — and folded into the audit trail as a TRIPWIRE, not a routine
 /// deny, because there is no legitimate reason for it to ever be
 /// attempted. See docs/THREAT-MODEL.md.
-pub const CANARY_DOMAIN: &str = "canary.isolator.invalid";
+pub const CANARY_DOMAIN: &str = "canary.moor.invalid";
 
 /// A decoy value planted in the sandbox's environment as
-/// `ISOLATOR_CANARY_TOKEN`. It looks like a credential but authenticates
+/// `MOOR_CANARY_TOKEN`. It looks like a credential but authenticates
 /// nothing — its only purpose is to exist somewhere a real secret would,
-/// so a probe (in `isolator selftest`'s breakout battery) can confirm it
+/// so a probe (in `moor selftest`'s breakout battery) can confirm it
 /// never reaches an unapproved destination. See proxy/README.md for why
 /// this is a secondary control, not the primary one (TLS isn't
 /// intercepted, so payload-level scanning only really covers plain HTTP).
@@ -19,5 +19,5 @@ pub fn generate_token() -> String {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    format!("isolator-canary-{:x}-{:x}", nanos, std::process::id())
+    format!("moor-canary-{:x}-{:x}", nanos, std::process::id())
 }

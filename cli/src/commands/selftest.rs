@@ -65,15 +65,9 @@ fn run_breakout_battery(container: &str) -> Vec<Check> {
             "root filesystem rejects writes",
             proc::run_capture(
                 "docker",
-                &[
-                    "exec",
-                    container,
-                    "sh",
-                    "-c",
-                    "touch /isolator-write-test 2>&1",
-                ],
+                &["exec", container, "sh", "-c", "touch /moor-write-test 2>&1"],
             ),
-            "touch /isolator-write-test",
+            "touch /moor-write-test",
             |success, _| !success,
         ),
         probe(
@@ -189,7 +183,7 @@ fn evaluate(info: &Value) -> Vec<Check> {
 /// Inspect the live sandbox container and assert every row of the
 /// hardening table in policies/README.md actually holds. This is the
 /// guardrail that catches a future template change silently weakening
-/// isolation — see Phase 7 in the isolator plan for the full breakout
+/// isolation — see Phase 7 in the moor plan for the full breakout
 /// battery this will grow into.
 pub fn run(name: &str) -> Result<()> {
     let m = Manifest::load(&paths::manifest_path(name)?)?;
@@ -198,7 +192,7 @@ pub fn run(name: &str) -> Result<()> {
     let (status, out) = proc::run_capture("docker", &["inspect", &container])?;
     if !status.success() {
         anyhow::bail!(
-            "`docker inspect {container}` failed — is the project up? (`isolator up {name}`)"
+            "`docker inspect {container}` failed — is the project up? (`moor up {name}`)"
         );
     }
     let parsed: Vec<Value> = serde_json::from_str(&out).context("parsing docker inspect output")?;
@@ -229,7 +223,7 @@ pub fn run(name: &str) -> Result<()> {
     .ok();
     let folded = audit::fold_egress_log(name, &m).unwrap_or(0);
     if folded > 0 {
-        println!("\n(folded {folded} new egress-log entries into the audit chain — check `isolator audit {name}` for any TRIPWIRE lines)");
+        println!("\n(folded {folded} new egress-log entries into the audit chain — check `moor audit {name}` for any TRIPWIRE lines)");
     }
 
     checks.extend(battery.into_iter().map(|c| Check {

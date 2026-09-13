@@ -1,12 +1,13 @@
 [package]
-name = "isolator"
+name = "moor"
 version = "0.1.0"
 edition = "2021"
 description = "Control CLI for containerized, keel-driven AI development sandboxes"
-publish = false
+license = "MIT"
+repository = "https://github.com/daneb/isolator"
 
 [[bin]]
-name = "isolator"
+name = "moor"
 path = "src/main.rs"
 
 [dependencies]

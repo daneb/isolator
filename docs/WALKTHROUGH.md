@@ -2,7 +2,7 @@
 
 This is not a hypothetical — every command below was actually run against
 a real GitHub repository (`daneb/isolator-sample-app`, private) as the
-Phase 8 acceptance test for isolator. Two real bugs surfaced doing this
+Phase 8 acceptance test for moor. Two real bugs surfaced doing this
 and are called out below, fixed in the same commit as this doc.
 
 ## 0. Before you start
@@ -22,7 +22,7 @@ log (see the credential-helper note in step 1).
 ## 1. Ideation → a project
 
 ```bash
-isolator new isolator-sample-app --github --image isolator/node:latest
+moor new isolator-sample-app --github --image moor/node:latest
 ```
 
 This creates a private GitHub repo, a sandbox + egress container pair, and
@@ -38,13 +38,13 @@ git -c credential.helper='!f() { echo username=x-access-token; echo "password=$G
 ```
 
 — so the token is read by git's shell, never passed as an argument to
-`docker exec` itself. Export `GITHUB_TOKEN` before `isolator new --github`
+`docker exec` itself. Export `GITHUB_TOKEN` before `moor new --github`
 and this works cleanly end to end.
 
 ## 2. Give the agent instructions
 
-Everything from here happens inside the sandbox, via `isolator run
-<project> -- <cmd>` or an interactive `isolator shell <project>`. Set
+Everything from here happens inside the sandbox, via `moor run
+<project> -- <cmd>` or an interactive `moor shell <project>`. Set
 `[verify]` in `.keel/keel.toml` (the placeholder keel scaffolds is empty
 — G2 blocks without it):
 
@@ -58,7 +58,7 @@ lint  = "node --check src/greet.js"
 Then author a spec:
 
 ```bash
-isolator run isolator-sample-app -- keel spec new greet-name --scope 'src/**'
+moor run isolator-sample-app -- keel spec new greet-name --scope 'src/**'
 ```
 
 Fill in `.keel/specs/greet-name/spec.md` with one real EARS criterion and
@@ -70,12 +70,12 @@ in step 3) instead of doing it by hand. This walkthrough was run without
 review an agent's own proposed change before merging it.
 
 ```bash
-isolator run isolator-sample-app -- keel gate g0 greet-name
-isolator run isolator-sample-app -- keel approve greet-name --stage spec
-isolator run isolator-sample-app -- keel plan greet-name
+moor run isolator-sample-app -- keel gate g0 greet-name
+moor run isolator-sample-app -- keel approve greet-name --stage spec
+moor run isolator-sample-app -- keel plan greet-name
 # fill in plan.md's approach + rollback, and tasks.md's file list
-isolator run isolator-sample-app -- keel gate g1 greet-name
-isolator run isolator-sample-app -- keel approve greet-name --stage plan
+moor run isolator-sample-app -- keel gate g1 greet-name
+moor run isolator-sample-app -- keel approve greet-name --stage plan
 ```
 
 **Real gate catch, not theater:** G1 failed the first time because the
@@ -88,7 +88,7 @@ under-scoped spec.
 ## 3. Build, then gate the real thing
 
 ```bash
-isolator run isolator-sample-app -- keel run greet-name --no-driver
+moor run isolator-sample-app -- keel run greet-name --no-driver
 ```
 
 This actually ran `npm install`, `node --test test/`, and `node --check
@@ -106,15 +106,15 @@ G2.5 pass — 5 passed, 0 failed, 0 blocked
 G3 needs a recorded human decision:
 
 ```bash
-isolator run isolator-sample-app -- keel approve greet-name --stage merge
+moor run isolator-sample-app -- keel approve greet-name --stage merge
 ```
 
 ## 4. Ship it
 
 ```bash
-isolator run isolator-sample-app -- git add -A
-isolator run isolator-sample-app -- git commit -m "feat: add greet(name)"
-isolator run isolator-sample-app -- git push -u origin main
+moor run isolator-sample-app -- git add -A
+moor run isolator-sample-app -- git commit -m "feat: add greet(name)"
+moor run isolator-sample-app -- git push -u origin main
 ```
 
 The push succeeded — `github.com` is on the default egress allow-list, and
@@ -129,12 +129,12 @@ tagged distinctly:
 ## 5. Review the trail
 
 ```bash
-isolator audit isolator-sample-app          # folds in egress log, prints the chain
-isolator audit isolator-sample-app --verify # chain OK — 51 entries, no tampering detected.
-isolator audit isolator-sample-app --export /tmp
+moor audit isolator-sample-app          # folds in egress log, prints the chain
+moor audit isolator-sample-app --verify # chain OK — 51 entries, no tampering detected.
+moor audit isolator-sample-app --export /tmp
 ```
 
-The chain covers the whole session: every `isolator run`/`shell` command,
+The chain covers the whole session: every `moor run`/`shell` command,
 every widened-scope retry, the git-push, and the egress gateway's own
 record of connections to `registry.npmjs.org` and `github.com` — folded
 in automatically, not something anyone inside the sandbox could suppress.
@@ -146,7 +146,7 @@ pull `.keel/bundles/` instead; re-verified the export actually contains
 `keel-bundles/keel-2026-09-11-001.tar.gz` afterward.
 
 ```bash
-isolator selftest isolator-sample-app   # 8/8 static + 3/3 active breakout checks, still pass
+moor selftest isolator-sample-app   # 8/8 static + 3/3 active breakout checks, still pass
 ```
 
 ## What this proved
@@ -155,10 +155,10 @@ isolator selftest isolator-sample-app   # 8/8 static + 3/3 active breakout check
   end-to-end against a real GitHub repo, with real build/test/lint
   commands executing inside the sandbox.
 - keel's gates caught two genuine scope violations during this run (an
-  under-scoped test file, then an under-scoped lockfile) — the isolator
+  under-scoped test file, then an under-scoped lockfile) — the moor
   wrapper didn't have to add anything for that; it's keel doing its job,
-  running where isolator put it.
-- Three real bugs in isolator itself surfaced only by actually running
+  running where moor put it.
+- Three real bugs in moor itself surfaced only by actually running
   this, not by reasoning about the design: the missing clone credential,
   and the wrong evidence-bundle path (found once, in the export step, but
   worth noting the audit chain's `.keel/store/evidence` string appeared

@@ -1,4 +1,4 @@
-# isolator
+# moor
 
 Containerized, [keel](https://github.com/daneb/keel)-driven sandboxes for
 AI coding agents. Every project gets its own Docker sandbox with no host
@@ -21,7 +21,9 @@ for why Claude Code auth is an injected token rather than a mounted
 `~/.claude`,
 [docs/decisions/0003-claude-code-permissions.md](docs/decisions/0003-claude-code-permissions.md)
 for why every project defaults to Claude Code's own `auto` permission
-mode instead of `--dangerously-skip-permissions`, and
+mode instead of `--dangerously-skip-permissions`,
+[docs/decisions/0004-rename-to-moor.md](docs/decisions/0004-rename-to-moor.md)
+for why this was `isolator` and is now `moor`, and
 [docs/examples/ascii-banner](docs/examples/ascii-banner) for a small
 utility built end to end by a real Claude Code agent running inside a
 sandbox — including two real bugs that run found and fixed, and the
@@ -40,38 +42,38 @@ narrowly) suppressed, with the reasoning inline.
 # one-time: build the sandbox + egress images
 ./images/build.sh
 
-# one-time: build the isolator CLI
+# one-time: build the moor CLI
 cd cli && cargo build --release
-# (or use ./target/debug/isolator during development)
+# (or use ./target/debug/moor during development)
 
 # create a project (add --github to also create a private GitHub repo)
-isolator new my-app --image isolator/node:latest
+moor new my-app --image moor/node:latest
 
 # ...or bring an existing project in — history and all, no bind mount
-isolator import keel --from ~/Repos/keel
+moor import keel --from ~/Repos/keel
 
 # work inside it
-isolator shell my-app
-isolator run my-app -- keel status
+moor shell my-app
+moor run my-app -- keel status
 
 # check the sandbox is actually locked down the way it should be
-isolator selftest my-app
+moor selftest my-app
 
 # see what's happened in this project so far
-isolator audit my-app
+moor audit my-app
 
-isolator down my-app
+moor down my-app
 ```
 
 Secrets (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `GITHUB_TOKEN`,
 ...) are read from your shell's environment if exported, otherwise from
-the macOS Keychain — set one once and every future `isolator up` just
+the macOS Keychain — set one once and every future `moor up` just
 picks it up, nothing to re-export each session:
 
 ```bash
-isolator secrets set my-app ANTHROPIC_API_KEY   # prompts, hides input where possible
-isolator secrets status my-app                  # where each declared secret resolves from
-isolator secrets unset my-app ANTHROPIC_API_KEY
+moor secrets set my-app ANTHROPIC_API_KEY   # prompts, hides input where possible
+moor secrets status my-app                  # where each declared secret resolves from
+moor secrets unset my-app ANTHROPIC_API_KEY
 ```
 
 If you pay for Claude via a claude.ai subscription rather than metered
@@ -82,11 +84,11 @@ container) and store it the same way as any other secret:
 
 ```bash
 claude setup-token                                    # one-time, on the host — opens a browser login
-isolator secrets set my-app CLAUDE_CODE_OAUTH_TOKEN   # paste the token it prints
+moor secrets set my-app CLAUDE_CODE_OAUTH_TOKEN   # paste the token it prints
 ```
 
 Note: whether `keel` invokes the `claude` driver (vs. falling back to
-`--no-driver` mode) is keel's own credential check, not isolator's — see
+`--no-driver` mode) is keel's own credential check, not moor's — see
 [keel](https://github.com/daneb/keel)'s docs if it doesn't pick up
 `CLAUDE_CODE_OAUTH_TOKEN` the same way it picks up `ANTHROPIC_API_KEY`.
 
@@ -94,9 +96,10 @@ Note: whether `keel` invokes the `claude` driver (vs. falling back to
 
 - `images/` — the sandbox base image + per-language layers (node, rust, python)
 - `proxy/` — the egress gateway (default-deny forward proxy)
-- `compose/` — the per-project docker-compose template
 - `policies/` — the hardening baseline and the manifest schema, documented
-- `cli/` — the `isolator` Rust CLI
+- `cli/` — the `moor` Rust CLI, including `cli/templates/` (the
+  per-project docker-compose template — lives inside the crate, not a
+  top-level `compose/`, so a published crate can actually embed it)
 - `docs/` — threat model and architecture
 - `Makefile` — local dev tooling (`make help`); mirrors
   `.github/workflows/ci.yml` so `make ci` runs the same checks locally
@@ -105,7 +108,7 @@ Note: whether `keel` invokes the `claude` driver (vs. falling back to
 
 ### Why you can trust this
 
-Nothing here asks you to take isolator's word for it — every claim below
+Nothing here asks you to take moor's word for it — every claim below
 is either checked by code you can read, or was verified live against a
 real container and written up with the evidence attached:
 
@@ -113,13 +116,13 @@ real container and written up with the evidence attached:
   mount, no `docker.sock`, `cap_drop: ALL`, non-root, read-only rootfs,
   a genuinely internal Docker network with no route out except through
   the egress gateway — see [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md)
-  for why each one is there. `isolator selftest` re-checks all of it
+  for why each one is there. `moor selftest` re-checks all of it
   against the *live* container (not just the manifest) every time you
   run it, and fails safe: a corrupted or missing `docker inspect` field
   reads as FAIL, never as "all clear" (`missing_fields_default_to_failing_safe`
   in `cli/src/commands/selftest.rs`).
 - **The audit trail is tamper-evident, not just append-only.** Every
-  entry hash-chains to the one before it; `isolator audit --verify`
+  entry hash-chains to the one before it; `moor audit --verify`
   recomputes the whole chain and names exactly which entry was edited,
   deleted, reordered, or forged if any was — proven with a live tamper
   test in `tests/e2e.sh`, not just asserted.
@@ -136,7 +139,7 @@ real container and written up with the evidence attached:
   risk judgment, and the sandbox's structural containment below if that
   judgment is ever fooled.
 - **Every design decision that matters is written down, including the
-  ones that didn't go isolator's way.** ADR-0001 explains why gVisor and
+  ones that didn't go moor's way.** ADR-0001 explains why gVisor and
   Apple's `container` tool were both rejected (and exactly what would
   need to change for that to flip); ADR-0002 explains why Claude Code
   auth is an injected token rather than a mounted `~/.claude`, including
@@ -186,17 +189,17 @@ not separate from it:
 - **Secret values are briefly visible in one subprocess's `argv`.**
   `security add-generic-password -w <value>` (macOS Keychain writes) has
   no non-interactive API that avoids this — documented as an accepted
-  tradeoff in `cli/src/secrets.rs`, not something isolator's own code
+  tradeoff in `cli/src/secrets.rs`, not something moor's own code
   can route around.
 - **No image signing, provenance, or SBOM.** Nothing today lets you
   cryptographically verify a built image matches this source, or hand
   someone a machine-readable bill of materials for one.
-- **Auto mode's risk judgment is Anthropic's to maintain, not isolator's
+- **Auto mode's risk judgment is Anthropic's to maintain, not moor's
   to verify per-release.** [ADR-0003](docs/decisions/0003-claude-code-permissions.md)
   replaced the blanket `--dangerously-skip-permissions` default with
   Claude Code's own `auto` permission mode — a real improvement, checked
   directly against a live container — but that mode's actual judgment
-  calls are a model behavior isolator doesn't control and hasn't
+  calls are a model behavior moor doesn't control and hasn't
   re-verified across every future Claude Code version. An operator can
   still pass `--dangerously-skip-permissions` explicitly for a given run
   if they want the old behavior back.
@@ -221,7 +224,7 @@ not separate from it:
 - A custom seccomp profile derived from real `strace` output of an
   actual toolchain run, replacing the current default profile (already
   flagged as deferred in `policies/README.md`).
-- A larger active breakout battery in `isolator selftest` — today's
+- A larger active breakout battery in `moor selftest` — today's
   three probes (canary domain, read-only fs, `docker.sock`) are a
   starting point, not a ceiling.
 - Automated dependency updates (Dependabot/Renovate) for `Cargo.lock`
@@ -230,7 +233,7 @@ not separate from it:
 - Re-verify `auto` permission mode's actual behavior (does it still
   create files when asked, still refuse a destructive command
   unprompted) whenever the base image bumps its Claude Code version —
-  it's a model behavior, not a pinned rule isolator controls.
+  it's a model behavior, not a pinned rule moor controls.
 
 ## Testing
 
@@ -240,13 +243,13 @@ not separate from it:
   rendering, the tinyproxy access-log parser, the audit hash chain
   (append/verify, plus deliberately editing, deleting, reordering, and
   forging entries to confirm `--verify` catches each one), Keychain
-  service-name scoping, and `isolator import`'s image auto-detection and
+  service-name scoping, and `moor import`'s image auto-detection and
   GitHub-URL parsing.
 - `./tests/e2e.sh` — end-to-end against real Docker containers: creates a
-  throwaway project, runs `isolator selftest`'s static checks and active
+  throwaway project, runs `moor selftest`'s static checks and active
   breakout battery, confirms egress allow/deny against github.com and
   example.com, confirms a `git push` attempt is tagged distinctly in the
-  audit chain, folds the egress log in via `isolator audit`, verifies the
+  audit chain, folds the egress log in via `moor audit`, verifies the
   chain, **live-tampers with the real chain.jsonl file and confirms
   `--verify` detects it**, exports an audit bundle, and imports a
   throwaway local multi-branch repo end-to-end (image auto-detect, `keel
@@ -276,17 +279,30 @@ make install          # cargo install the CLI to ~/.cargo/bin
 make clean            # cargo clean
 ```
 
-`make publish-dry-run` runs `cargo publish --dry-run` — today it fails
-immediately, on purpose: `cli/Cargo.toml` has `publish = false`, set
-deliberately so `cargo deny`'s license check doesn't need an invented
-license for a crate that was never meant to be published. Reversing
-that means picking a real OSS license and adding a `LICENSE` file — not
-done unilaterally here. Separately, the crate name `isolator` is already
-taken on crates.io by an unrelated package, so publishing under this
-name isn't possible regardless. Actually publishing would also mean
-deciding what "publish" should include — `cargo install` only brings
-the compiled binary, not `images/`, `compose/`, `proxy/`, or
-`policies/`, without which the binary can't do anything useful.
+`make publish-dry-run` runs `cargo publish --dry-run`. This crate was
+originally named `isolator` and marked `publish = false` on purpose —
+`isolator` is already taken on crates.io by an unrelated package, and
+the crate wasn't meant to be published at all at the time. Three things
+were needed to actually fix that, not just the first one that looked
+like the whole story: renamed to `moor` (available, checked directly
+against the crates.io API — see
+[ADR-0004](docs/decisions/0004-rename-to-moor.md) for the naming
+process and every alternative tried), MIT-licensed
+(`LICENSE` + `license = "MIT"` in `cli/Cargo.toml`), and — found only by
+actually running `cargo publish --dry-run --allow-dirty` all the way
+through, not stopping at the first passing check —
+`cli/src/compose.rs`'s `include_str!` moved from a top-level `compose/`
+into `cli/templates/`, since a published crate can't embed a file that
+lives outside its own package directory. `cargo publish --dry-run` now
+packages, compiles from the isolated package tarball, and gets to the
+upload step (aborted only because it's a dry run) — verified, not
+assumed. Actually running `cargo publish` (crates.io login, the
+irreversible part) is a deliberate manual step for whoever owns that
+account — not run from here. One caveat ADR-0004 is explicit about:
+`cargo install moor` only brings the compiled binary, not `images/`,
+`proxy/`, or `policies/` — without those (from a full
+clone, with `./images/build.sh` run once) the installed binary has no
+sandbox images to build from.
 
 ## Status
 
@@ -297,14 +313,14 @@ below):
   egress gateway with a default-deny allow-list, the container hardening
   baseline (read-only rootfs, dropped capabilities, no bind mounts,
   non-root user, no default-bridge network).
-- **4**: the `isolator` CLI (`new`, `up`, `down`, `shell`, `run`, `status`,
+- **4**: the `moor` CLI (`new`, `up`, `down`, `shell`, `run`, `status`,
   `audit`, `selftest`).
 - **5**: keel + the Claude Code CLI verified running inside the sandbox
   (`keel init`, `keel run` all execute there, not on the host).
 - **6**: a hash-chained, tamper-evident audit trail per project
   (`audit/chain.jsonl`) folding in exec commands, egress verdicts, and a
-  distinct `git-push` tag; `isolator audit --verify` and `--export`.
-- **7**: `isolator selftest` now also runs an active breakout battery
+  distinct `git-push` tag; `moor audit --verify` and `--export`.
+- **7**: `moor selftest` now also runs an active breakout battery
   (canary-domain reachability, read-only-fs write attempt, `docker.sock`
   presence) against a live container, not just static `docker inspect`
   checks.
@@ -316,12 +332,12 @@ below):
   `--export` bundle pointed at a keel evidence path that doesn't exist,
   and (same root cause) the audit command's own help text repeated it.
 
-- **9**: Keychain-sourced secrets are built (`isolator secrets
+- **9**: Keychain-sourced secrets are built (`moor secrets
   set`/`unset`/`status`; resolved automatically by `up`/`run`/`shell`,
   ahead of the operator's own shell env, with redaction wired through so
   a Keychain-only secret still gets scrubbed from the audit chain — this
   closed a real gap: it originally worked only within the single process
-  that first resolved the secret, not later `isolator run` invocations).
+  that first resolved the secret, not later `moor run` invocations).
   Checked gVisor/runsc: not available under this OrbStack install (only
   `runc`), and switching to Docker Desktop wouldn't fix that either — its
   engine runs in the same kind of managed, non-administrable VM. Also
@@ -345,7 +361,7 @@ below):
   Still genuinely deferred: remote/centralized audit log shipping (no
   remote destination has been specified to ship to).
 
-- **Migration**: [`isolator import`](docs/MIGRATING.md) brings an
+- **Migration**: [`moor import`](docs/MIGRATING.md) brings an
   existing local project into a sandbox — history transferred via a
   one-shot `git bundle` (never a bind mount), image auto-detected,
   existing GitHub remote preserved. Verified against keel's own repo:

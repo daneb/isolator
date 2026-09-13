@@ -5,8 +5,8 @@ use anyhow::Result;
 /// through which code actually leaves the sandbox for real (as opposed
 /// to routine egress like `git fetch`/`clone`/package installs). Tagged
 /// distinctly in the audit chain so it stands out from routine execs.
-/// Best-effort by nature: it only sees commands run via `isolator run`,
-/// not ones typed inside an interactive `isolator shell` session — see
+/// Best-effort by nature: it only sees commands run via `moor run`,
+/// not ones typed inside an interactive `moor shell` session — see
 /// docs/THREAT-MODEL.md for why a git hook baked into the image isn't a
 /// stronger alternative (it runs inside the untrusted sandbox and the
 /// agent can simply reconfigure or bypass it).
@@ -16,7 +16,7 @@ fn looks_like_git_push(cmd: &[String]) -> bool {
 
 pub fn run(name: &str, cmd: &[String]) -> Result<()> {
     if cmd.is_empty() {
-        anyhow::bail!("usage: isolator run <project> -- <command...>");
+        anyhow::bail!("usage: moor run <project> -- <command...>");
     }
     let m = Manifest::load(&paths::manifest_path(name)?)?;
     // So audit::redact below can scrub a secret's value even when it was

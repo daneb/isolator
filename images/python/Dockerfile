@@ -1,5 +1,5 @@
 # Python project layer.
-ARG BASE_IMAGE=isolator/base:latest
+ARG BASE_IMAGE=moor/base:latest
 FROM ${BASE_IMAGE}
 
 USER root

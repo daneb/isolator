@@ -16,7 +16,7 @@ pub struct Manifest {
     #[serde(default)]
     pub secrets: Vec<String>,
     /// Generated once at `new` time, never user-edited. Injected into the
-    /// sandbox as ISOLATOR_CANARY_TOKEN — see canary.rs.
+    /// sandbox as MOOR_CANARY_TOKEN — see canary.rs.
     #[serde(default = "canary::generate_token")]
     pub canary_token: String,
 }
@@ -56,7 +56,7 @@ impl Manifest {
             // sandbox — CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`
             // on the host, for a claude.ai subscription) takes priority
             // over ANTHROPIC_API_KEY when both are set; that precedence is
-            // the `claude` CLI's own behavior, not isolator's.
+            // the `claude` CLI's own behavior, not moor's.
             secrets: vec![
                 "ANTHROPIC_API_KEY".to_string(),
                 "CLAUDE_CODE_OAUTH_TOKEN".to_string(),
@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn default_manifest_has_sane_resource_limits() {
-        let m = Manifest::new("sample", "isolator/base:latest");
+        let m = Manifest::new("sample", "moor/base:latest");
         assert_eq!(m.resources.pids, 512);
         assert!(m.secrets.contains(&"ANTHROPIC_API_KEY".to_string()));
         assert!(m.secrets.contains(&"CLAUDE_CODE_OAUTH_TOKEN".to_string()));
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn manifest_round_trips_through_yaml() {
-        let m = Manifest::new("sample", "isolator/node:latest");
+        let m = Manifest::new("sample", "moor/node:latest");
         let text = serde_yaml::to_string(&m).unwrap();
         let back: Manifest = serde_yaml::from_str(&text).unwrap();
         assert_eq!(back.name, m.name);

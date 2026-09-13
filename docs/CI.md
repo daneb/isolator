@@ -20,7 +20,7 @@ documented, narrow suppression. Nothing here is a rubber stamp.
 | `docker-lint` | [`hadolint`](https://github.com/hadolint/hadolint) | Every Dockerfile (base, node, rust, python, egress) |
 | `secret-scan` | [`gitleaks`](https://github.com/gitleaks/gitleaks) | Full git history for leaked credentials |
 | `image-scan` | [`trivy`](https://github.com/aquasecurity/trivy) | Every built image, for HIGH/CRITICAL CVEs with an available fix |
-| `e2e` | `tests/e2e.sh` | The real thing: live containers, `isolator selftest`'s full hardening + breakout battery, the audit chain (fold, verify, a live tamper attempt), `isolator import` |
+| `e2e` | `tests/e2e.sh` | The real thing: live containers, `moor selftest`'s full hardening + breakout battery, the audit chain (fold, verify, a live tamper attempt), `moor import` |
 
 ## What actually got fixed (not just gated on)
 
@@ -39,7 +39,7 @@ Running these for real, not just writing the YAML, found genuine bugs:
 Real problems got fixed above; these are narrow, documented, non-default suppressions — see `.hadolint.yaml` and `.gitleaks.toml` for the exact list and reasoning inline:
 
 - **hadolint**: unpinned `apt-get`/`npm`/`pip` package versions (pinning would freeze known-vulnerable versions instead of tracking upstream fixes — `trivy`'s CVE scan is the actual gate on that), non-numeric `USER` (named users, not a cross-image UID-mapping scenario this project has), and `DL3006` on `FROM ${ARG}` (hadolint can't statically verify a tag through an ARG default, even though `images/build.sh` always passes one explicitly).
-- **gitleaks**: three fake, deliberately-secret-shaped strings — two are `cli/src/audit.rs` unit-test fixtures for `redact()`/`redact_argv()` themselves, one is the illustrative `canary_token` in `policies/isolator.manifest.example.yaml`.
+- **gitleaks**: three fake, deliberately-secret-shaped strings — two are `cli/src/audit.rs` unit-test fixtures for `redact()`/`redact_argv()` themselves, one is the illustrative `canary_token` in `policies/moor.manifest.example.yaml`.
 - **trivy**: run with `--ignore-unfixed` — the vast majority of a `debian:bookworm-slim` image's CVE surface has no fix published yet (Debian's security tracker marks it `affected`, `fix_deferred`, or `will_not_fix`); failing CI on those would be permanent, unactionable red and would just teach people to ignore it. The gate is "is there a fix available that we haven't applied" — which, after the fixes above, is currently zero across all five images.
 - **cargo-deny `multiple-versions`**: left at `warn` (`syn` v2 and v3 both appear, from `windows-*` crates vs. `clap_derive`/`serde_derive`/`wasm-bindgen` — an ordinary transitive-dependency-graph reality, not something pinning would fix without vendoring patches).
 

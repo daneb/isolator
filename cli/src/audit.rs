@@ -150,7 +150,7 @@ pub fn verify_chain(path: &Path) -> Result<VerifyOutcome> {
 
 /// Best-effort redaction: replace any literal occurrence of a named
 /// secret's *value* (as currently set in this process's own environment)
-/// with a placeholder. This only catches secrets the isolator CLI itself
+/// with a placeholder. This only catches secrets the moor CLI itself
 /// had access to at logging time — see docs/THREAT-MODEL.md and
 /// proxy/README.md for what this control does and doesn't cover.
 pub fn redact(text: &str, secret_names: &[String]) -> String {
@@ -169,7 +169,7 @@ fn redact_argv(argv: &[String], secret_names: &[String]) -> Vec<String> {
     argv.iter().map(|a| redact(a, secret_names)).collect()
 }
 
-/// Log one `isolator run`/`shell`/`new`-driven command. `kind` lets
+/// Log one `moor run`/`shell`/`new`-driven command. `kind` lets
 /// callers flag a command as something more specific than a routine
 /// exec — e.g. `run_cmd` tags anything that looks like `git push` as
 /// "git-push" instead of "exec", since that's the one channel through
@@ -195,7 +195,7 @@ pub fn log_exec(
 
 /// Fold any new lines from the egress gateway's own access log into the
 /// project's audit chain. Tracks how many raw lines have already been
-/// folded in `audit/.egress-offset` so re-running `isolator audit` is
+/// folded in `audit/.egress-offset` so re-running `moor audit` is
 /// idempotent. If the egress container was restarted (its log lives on
 /// tmpfs and resets), the offset is detected as stale and reset rather
 /// than silently under- or over-counting.
@@ -258,7 +258,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("isolator-audit-test-{label}-{nanos}.jsonl"))
+        std::env::temp_dir().join(format!("moor-audit-test-{label}-{nanos}.jsonl"))
     }
 
     #[test]
@@ -411,21 +411,21 @@ mod tests {
 
     #[test]
     fn redact_replaces_secret_env_values_but_leaves_everything_else() {
-        std::env::set_var("ISOLATOR_TEST_SECRET_A", "sk-super-secret-value-123");
+        std::env::set_var("MOOR_TEST_SECRET_A", "sk-super-secret-value-123");
         let text =
             "curl -H 'Authorization: Bearer sk-super-secret-value-123' https://api.example.com";
-        let redacted = redact(text, &["ISOLATOR_TEST_SECRET_A".to_string()]);
+        let redacted = redact(text, &["MOOR_TEST_SECRET_A".to_string()]);
         assert!(!redacted.contains("sk-super-secret-value-123"));
-        assert!(redacted.contains("***REDACTED:ISOLATOR_TEST_SECRET_A***"));
+        assert!(redacted.contains("***REDACTED:MOOR_TEST_SECRET_A***"));
         assert!(redacted.contains("https://api.example.com"));
-        std::env::remove_var("ISOLATOR_TEST_SECRET_A");
+        std::env::remove_var("MOOR_TEST_SECRET_A");
     }
 
     #[test]
     fn redact_ignores_secrets_not_set_in_env() {
-        std::env::remove_var("ISOLATOR_TEST_SECRET_UNSET");
+        std::env::remove_var("MOOR_TEST_SECRET_UNSET");
         let text = "keel run my-spec";
-        let redacted = redact(text, &["ISOLATOR_TEST_SECRET_UNSET".to_string()]);
+        let redacted = redact(text, &["MOOR_TEST_SECRET_UNSET".to_string()]);
         assert_eq!(redacted, text);
     }
 
@@ -434,25 +434,25 @@ mod tests {
         // A short/empty env value (e.g. an accidentally-blank secret)
         // must not turn into a blanket find-and-replace of common
         // substrings across the whole log line.
-        std::env::set_var("ISOLATOR_TEST_SHORT", "ok");
+        std::env::set_var("MOOR_TEST_SHORT", "ok");
         let text = "echo ok, this token is ok";
-        let redacted = redact(text, &["ISOLATOR_TEST_SHORT".to_string()]);
+        let redacted = redact(text, &["MOOR_TEST_SHORT".to_string()]);
         assert_eq!(redacted, text, "short values must not trigger redaction");
-        std::env::remove_var("ISOLATOR_TEST_SHORT");
+        std::env::remove_var("MOOR_TEST_SHORT");
     }
 
     #[test]
     fn redact_argv_redacts_each_element_independently() {
-        std::env::set_var("ISOLATOR_TEST_SECRET_B", "ghp_abcdef1234567890");
+        std::env::set_var("MOOR_TEST_SECRET_B", "ghp_abcdef1234567890");
         let argv = vec![
             "curl".to_string(),
             "-H".to_string(),
             "Authorization: token ghp_abcdef1234567890".to_string(),
         ];
-        let redacted = redact_argv(&argv, &["ISOLATOR_TEST_SECRET_B".to_string()]);
+        let redacted = redact_argv(&argv, &["MOOR_TEST_SECRET_B".to_string()]);
         assert_eq!(redacted[0], "curl");
-        assert!(redacted[2].contains("***REDACTED:ISOLATOR_TEST_SECRET_B***"));
+        assert!(redacted[2].contains("***REDACTED:MOOR_TEST_SECRET_B***"));
         assert!(!redacted[2].contains("ghp_abcdef1234567890"));
-        std::env::remove_var("ISOLATOR_TEST_SECRET_B");
+        std::env::remove_var("MOOR_TEST_SECRET_B");
     }
 }

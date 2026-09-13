@@ -1,4 +1,4 @@
-# isolator base sandbox image.
+# moor base sandbox image.
 # Hardened, non-root, no host tooling beyond what an agent needs to build/
 # lint/test a repo under keel's direction. No docker CLI, no sudo, no SSH
 # server, no bind-mount assumptions anywhere.
@@ -47,7 +47,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 RUN npm install -g npm@11 && npm cache clean --force
 
 # Claude Code CLI. No auth material baked in — an API key/token is
-# injected as an env var at `isolator up`, never stored in the image.
+# injected as an env var at `moor up`, never stored in the image.
 RUN npm install -g @anthropic-ai/claude-code && npm cache clean --force
 
 COPY --from=keel-build /usr/local/cargo/bin/keel /usr/local/bin/keel
@@ -58,7 +58,7 @@ RUN groupadd -g "${AGENT_GID}" agent \
     && chown -R agent:agent /workspace /home/agent/.cache /home/agent/.claude
 
 # /home/agent/.cache and /home/agent/.claude must exist with agent
-# ownership *in the image*, not just at container runtime: isolator mounts
+# ownership *in the image*, not just at container runtime: moor mounts
 # named volumes there (never a host path — see docs/ARCHITECTURE.md), and
 # Docker only copies a fresh volume's initial ownership from whatever
 # already exists at that path in the image. Skip this and the mount point
@@ -67,7 +67,7 @@ RUN groupadd -g "${AGENT_GID}" agent \
 # read-only, non-root, cap-drop-ALL rootfs below.
 
 # Default Claude Code to its own "auto" permission mode instead of
-# requiring --dangerously-skip-permissions for non-interactive `isolator
+# requiring --dangerously-skip-permissions for non-interactive `moor
 # run` invocations. Auto mode has Claude assess each tool call for risky
 # actions and prompt injection itself, running what it judges lower-risk
 # and refusing the rest (verified directly: it created a file with no
@@ -83,7 +83,7 @@ COPY --chown=agent:agent claude-settings.json /home/agent/.claude/settings.json
 WORKDIR /workspace
 USER agent
 
-# No ENTRYPOINT/CMD that assumes a shell — isolator drives every
+# No ENTRYPOINT/CMD that assumes a shell — moor drives every
 # invocation explicitly (`docker exec`), so the container's default
 # command just idles.
 CMD ["sleep", "infinity"]

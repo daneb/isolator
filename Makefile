@@ -1,4 +1,4 @@
-# isolator dev tooling — mirrors .github/workflows/ci.yml so `make ci`
+# moor dev tooling — mirrors .github/workflows/ci.yml so `make ci`
 # runs the same checks locally that CI runs on push. See docs/CI.md for
 # what each check catches and what's deliberately suppressed, and
 # README.md's Security section for why. Targets that shell out to an
@@ -36,12 +36,12 @@ clean: ## cargo clean (does not touch Docker images/volumes — see `make images
 	cd $(CLI_DIR) && cargo clean
 
 .PHONY: images
-images: ## Build every isolator Docker image (base, node, rust, python, egress)
+images: ## Build every moor Docker image (base, node, rust, python, egress)
 	./images/build.sh
 
 .PHONY: images-clean
-images-clean: ## Remove every isolator-tagged Docker image (does not touch project volumes)
-	@for img in $(IMAGES); do docker rmi -f isolator/$$img:latest 2>/dev/null || true; done
+images-clean: ## Remove every moor-tagged Docker image (does not touch project volumes)
+	@for img in $(IMAGES); do docker rmi -f moor/$$img:latest 2>/dev/null || true; done
 
 # --- format / lint / test ----------------------------------------------
 
@@ -92,8 +92,8 @@ gitleaks: ## gitleaks over the full git history, using .gitleaks.toml (needs: br
 trivy: images ## Trivy CVE scan of every built image, fixable HIGH/CRITICAL only (needs: brew install trivy)
 	@command -v trivy >/dev/null 2>&1 || { echo "trivy not found — install with: brew install trivy"; exit 1; }
 	@for img in $(IMAGES); do \
-		echo "== trivy scan: isolator/$$img:latest =="; \
-		trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 isolator/$$img:latest || exit 1; \
+		echo "== trivy scan: moor/$$img:latest =="; \
+		trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 moor/$$img:latest || exit 1; \
 	done
 
 .PHONY: security

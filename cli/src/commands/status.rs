@@ -4,7 +4,7 @@ use anyhow::Result;
 pub fn run() -> Result<()> {
     let names = paths::all_project_names()?;
     if names.is_empty() {
-        println!("no projects yet — try `isolator new <name>`");
+        println!("no projects yet — try `moor new <name>`");
         return Ok(());
     }
 

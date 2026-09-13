@@ -5,7 +5,7 @@
 
 ## Context
 
-isolator's entire threat model rests on one property: a sandboxed
+moor's entire threat model rests on one property: a sandboxed
 container can never reach the host OS, and its only route to the
 internet is through an explicit, auditable allow-list. Two alternative
 runtimes were investigated as ways to strengthen that further —
@@ -42,12 +42,12 @@ does. But:
   this machine runs 15.3.1. Apple's own maintainers state they
   typically won't address issues that can't be reproduced on macOS 26.
 - No compose-equivalent exists — adopting it means rewriting
-  isolator's entire `compose/` orchestration layer, not just swapping
+  moor's entire `compose/` orchestration layer, not just swapping
   a binary.
 - **The disqualifying finding:** default-deny network egress — the
-  single control isolator depends on most — is not solved. In
+  single control moor depends on most — is not solved. In
   [apple/container#719](https://github.com/apple/container/discussions/719),
-  a user attempted almost exactly isolator's dual-homed egress-proxy
+  a user attempted almost exactly moor's dual-homed egress-proxy
   pattern (an agent container on an internal network, a proxy
   container filtering what it can reach) and found that **the host
   gateway remains reachable from the "internal" network, so any host
@@ -56,13 +56,13 @@ does. But:
   "never touch the host OS," still open as of this check. The only
   workaround discussed is hand-written host-side macOS `pf` firewall
   rules — global, mutable, host-level state outside the project, which
-  `isolator selftest` has no way to verify the way it verifies the
+  `moor selftest` has no way to verify the way it verifies the
   current compose-based controls.
 
 ### 3. `runc` via Docker/OrbStack, as already implemented (chosen)
 
-Every control isolator's threat model requires is already implemented
-and verified against a live container by `isolator selftest`: no host
+Every control moor's threat model requires is already implemented
+and verified against a live container by `moor selftest`: no host
 bind mount, no `docker.sock`, `cap_drop: ALL`, `no-new-privileges`,
 non-root user, a genuinely internal Docker network (`internal: true`)
 with no route to the internet except through the egress gateway
@@ -90,5 +90,5 @@ this threat model (Apple's `container`, today).
   one blocker (the version requirement) but not the disqualifying one
   (the egress hole).
 - Revisit gVisor only if a concrete need justifies standing up a
-  self-managed Linux host/VM and pointing `isolator` at it remotely —
+  self-managed Linux host/VM and pointing `moor` at it remotely —
   not attempted speculatively.

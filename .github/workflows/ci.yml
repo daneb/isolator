@@ -101,42 +101,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: build every isolator image
+      - name: build every moor image
         run: ./images/build.sh
       # One job, one build pass, five scans — a matrix here would rebuild
       # all five images from scratch per matrix leg instead of once.
       - name: trivy scan base (fixable HIGH/CRITICAL only — see images/base/Dockerfile)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: isolator/base:latest
+          image-ref: moor/base:latest
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: trivy scan node
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: isolator/node:latest
+          image-ref: moor/node:latest
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: trivy scan rust
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: isolator/rust:latest
+          image-ref: moor/rust:latest
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: trivy scan python
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: isolator/python:latest
+          image-ref: moor/python:latest
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: trivy scan egress
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: isolator/egress:latest
+          image-ref: moor/egress:latest
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
@@ -151,7 +151,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: cli
-      - name: build every isolator image
+      - name: build every moor image
         run: ./images/build.sh
       - name: tests/e2e.sh (real Docker containers, no GitHub calls)
         run: bash tests/e2e.sh

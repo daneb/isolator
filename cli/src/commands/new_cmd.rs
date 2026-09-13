@@ -23,7 +23,7 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
 
     paths::ensure_project_dirs(name)?;
     m.save(&paths::manifest_path(name)?)
-        .context("writing isolator.yaml")?;
+        .context("writing moor.yaml")?;
 
     println!("==> starting sandbox + egress for '{name}'");
     super::compose_up(name)?;
@@ -32,7 +32,7 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
         let clone_url = format!("https://github.com/{repo}.git");
         println!("==> cloning {clone_url} into the sandbox workspace volume");
         // Freshly created repos are private, so cloning needs a credential.
-        // GITHUB_TOKEN (if the operator exported it before `isolator new`)
+        // GITHUB_TOKEN (if the operator exported it before `moor new`)
         // is already sitting in the *container's own* environment via the
         // compose template's ${GITHUB_TOKEN:-} substitution — so this
         // reads it there, inside the container's shell, rather than
@@ -63,7 +63,7 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
         )?;
         if !status.success() {
             println!(
-                "note: clone failed — if '{repo}' is private, export GITHUB_TOKEN (e.g. `export GITHUB_TOKEN=$(gh auth token)`) before `isolator new`/`up` so the sandbox can authenticate."
+                "note: clone failed — if '{repo}' is private, export GITHUB_TOKEN (e.g. `export GITHUB_TOKEN=$(gh auth token)`) before `moor new`/`up` so the sandbox can authenticate."
             );
         }
     }
@@ -74,16 +74,14 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
         Ok(s) => {
             audit::log_exec(name, &m, "exec", &["keel".into(), "init".into()], s.code())?;
             if !s.success() {
-                println!(
-                    "note: `keel init` did not exit cleanly — check with `isolator shell {name}`"
-                );
+                println!("note: `keel init` did not exit cleanly — check with `moor shell {name}`");
             }
         }
         Err(e) => println!("note: could not run `keel init` automatically: {e}"),
     }
 
     println!(
-        "\n'{name}' is up. Manifest: {}\nNext: isolator shell {name}",
+        "\n'{name}' is up. Manifest: {}\nNext: moor shell {name}",
         paths::manifest_path(name)?.display()
     );
     Ok(())

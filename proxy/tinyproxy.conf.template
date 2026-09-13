@@ -19,7 +19,7 @@ StartServers 4
 # reached, over HTTP or HTTPS CONNECT alike. entrypoint.sh renders
 # /run/tinyproxy/filter (writable tmpfs — the container root filesystem
 # is read-only) from the base allow-list plus the project's own
-# isolator.yaml egress.allow entries before tinyproxy starts.
+# moor.yaml egress.allow entries before tinyproxy starts.
 Filter "/run/tinyproxy/filter"
 PidFile "/run/tinyproxy/tinyproxy.pid"
 FilterDefaultDeny Yes

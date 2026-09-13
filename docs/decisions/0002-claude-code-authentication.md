@@ -14,12 +14,12 @@ were considered.
 
 ### 1. Bind-mount the host's `~/.claude` directory read-only into the container
 
-Rejected. isolator's threat model rests on one non-negotiable property:
+Rejected. moor's threat model rests on one non-negotiable property:
 **no host bind mount, ever** — see
 [docs/THREAT-MODEL.md](../THREAT-MODEL.md) and the "Why no bind mount"
 section of [docs/ARCHITECTURE.md](../ARCHITECTURE.md), enforced by the
 `sandbox_has_no_bind_mount_volume_entries` test in `cli/src/compose.rs`
-and checked live by `isolator selftest`. `~/.claude` also holds more
+and checked live by `moor selftest`. `~/.claude` also holds more
 than one credential — other projects' session state, settings, and
 potentially other stored auth — so mounting the whole directory into an
 untrusted sandbox would expose strictly more than the sandbox needs,
@@ -36,7 +36,7 @@ interactive browser login **on the host**, never inside the container;
 the container only ever sees the resulting token, exactly as narrow in
 scope as an API key.
 
-isolator's secret handling (`cli/src/manifest.rs`, `cli/src/secrets.rs`,
+moor's secret handling (`cli/src/manifest.rs`, `cli/src/secrets.rs`,
 `cli/src/compose.rs`) is already generic over secret *names* — resolve
 from shell env, else macOS Keychain, else leave unset; render into
 `docker compose`'s `${VAR:-}` substitution; redact from the audit chain
@@ -48,17 +48,17 @@ pipeline `ANTHROPIC_API_KEY` and `GITHUB_TOKEN` already use.
 
 `CLAUDE_CODE_OAUTH_TOKEN` is a declared secret alongside
 `ANTHROPIC_API_KEY`; either authenticates Claude Code inside the
-sandbox. isolator never mounts a host credentials directory for this or
+sandbox. moor never mounts a host credentials directory for this or
 any other purpose.
 
 ```bash
 claude setup-token                                  # one-time, on the host
-isolator secrets set <project> CLAUDE_CODE_OAUTH_TOKEN
+moor secrets set <project> CLAUDE_CODE_OAUTH_TOKEN
 ```
 
 ## Consequences
 
-- No isolator code path ever bind-mounts a host directory for
+- No moor code path ever bind-mounts a host directory for
   authentication — the no-bind-mount invariant holds without
   exception, including for this feature.
 - Whether `keel`'s own driver-detection logic (which decides whether to

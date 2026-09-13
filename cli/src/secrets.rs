@@ -3,13 +3,13 @@ use anyhow::{Context, Result};
 use std::io::{self, BufRead, Write};
 use std::process::Command;
 
-/// The Keychain "account" every isolator-managed secret is stored under.
+/// The Keychain "account" every moor-managed secret is stored under.
 /// The service name (one per project+name pair) is what actually scopes
 /// each item — see `service_name`.
-const ACCOUNT: &str = "isolator";
+const ACCOUNT: &str = "moor";
 
 fn service_name(project: &str, name: &str) -> String {
-    format!("isolator-{project}-{name}")
+    format!("moor-{project}-{name}")
 }
 
 /// Read a secret from the macOS Keychain, if present. Returns `Ok(None)`
@@ -187,7 +187,7 @@ mod tests {
     fn service_name_is_scoped_by_project_and_secret_name() {
         assert_eq!(
             service_name("my-app", "GITHUB_TOKEN"),
-            "isolator-my-app-GITHUB_TOKEN"
+            "moor-my-app-GITHUB_TOKEN"
         );
         assert_ne!(
             service_name("project-a", "API_KEY"),
@@ -198,28 +198,25 @@ mod tests {
 
     #[test]
     fn status_reports_env_before_checking_keychain() {
-        std::env::set_var("ISOLATOR_TEST_STATUS_SECRET", "some-value");
-        let result = status("some-project", &["ISOLATOR_TEST_STATUS_SECRET".to_string()]);
+        std::env::set_var("MOOR_TEST_STATUS_SECRET", "some-value");
+        let result = status("some-project", &["MOOR_TEST_STATUS_SECRET".to_string()]);
         assert_eq!(
             result,
-            vec![("ISOLATOR_TEST_STATUS_SECRET".to_string(), Source::Env)]
+            vec![("MOOR_TEST_STATUS_SECRET".to_string(), Source::Env)]
         );
-        std::env::remove_var("ISOLATOR_TEST_STATUS_SECRET");
+        std::env::remove_var("MOOR_TEST_STATUS_SECRET");
     }
 
     #[test]
     fn status_reports_missing_when_neither_env_nor_keychain_has_it() {
-        std::env::remove_var("ISOLATOR_TEST_STATUS_SECRET_UNSET");
+        std::env::remove_var("MOOR_TEST_STATUS_SECRET_UNSET");
         let result = status(
-            "isolator-secrets-test-project-that-does-not-exist",
-            &["ISOLATOR_TEST_STATUS_SECRET_UNSET".to_string()],
+            "moor-secrets-test-project-that-does-not-exist",
+            &["MOOR_TEST_STATUS_SECRET_UNSET".to_string()],
         );
         assert_eq!(
             result,
-            vec![(
-                "ISOLATOR_TEST_STATUS_SECRET_UNSET".to_string(),
-                Source::Missing
-            )]
+            vec![("MOOR_TEST_STATUS_SECRET_UNSET".to_string(), Source::Missing)]
         );
     }
 }

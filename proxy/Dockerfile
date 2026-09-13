@@ -1,4 +1,4 @@
-# isolator egress gateway: a default-deny forward proxy that is a
+# moor egress gateway: a default-deny forward proxy that is a
 # project sandbox's only route to the internet.
 FROM debian:bookworm-slim
 

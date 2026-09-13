@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # End-to-end verification against real Docker containers: builds the CLI,
 # creates a throwaway project, and exercises every control the plan
-# promises — hardening (isolator selftest), egress allow/deny, the audit
+# promises — hardening (moor selftest), egress allow/deny, the audit
 # chain (folding, verification, a live tamper attempt, export), and the
 # git-push audit tag. Exits non-zero if anything fails. Requires Docker
 # (OrbStack or otherwise) running locally; does not touch GitHub.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CLI="$ROOT/cli/target/debug/isolator"
+CLI="$ROOT/cli/target/debug/moor"
 PROJECT="e2e-$$"
 IMPORT_PROJECT="e2e-import-$$"
 IMPORT_SRC="$(mktemp -d)/local-repo"
@@ -27,25 +27,25 @@ indent() {
 
 expect_success() {
   local desc="$1"; shift
-  if "$@" >/tmp/isolator-e2e-out.$$ 2>&1; then
+  if "$@" >/tmp/moor-e2e-out.$$ 2>&1; then
     pass "$desc"
   else
     fail "$desc (expected success, got exit $?)"
-    sed 's/^/         /' /tmp/isolator-e2e-out.$$
+    sed 's/^/         /' /tmp/moor-e2e-out.$$
   fi
-  cat /tmp/isolator-e2e-out.$$
-  rm -f /tmp/isolator-e2e-out.$$
+  cat /tmp/moor-e2e-out.$$
+  rm -f /tmp/moor-e2e-out.$$
 }
 
 expect_failure() {
   local desc="$1"; shift
-  if "$@" >/tmp/isolator-e2e-out.$$ 2>&1; then
+  if "$@" >/tmp/moor-e2e-out.$$ 2>&1; then
     fail "$desc (expected failure, but it succeeded)"
   else
     pass "$desc"
   fi
-  cat /tmp/isolator-e2e-out.$$
-  rm -f /tmp/isolator-e2e-out.$$
+  cat /tmp/moor-e2e-out.$$
+  rm -f /tmp/moor-e2e-out.$$
 }
 
 assert_contains() {
@@ -61,13 +61,13 @@ assert_contains() {
 cleanup() {
   step "cleanup"
   "$CLI" down "$PROJECT" >/dev/null 2>&1 || true
-  rm -rf "$HOME/.isolator/projects/$PROJECT"
+  rm -rf "$HOME/.moor/projects/$PROJECT"
   docker volume rm "${PROJECT}-workspace" "${PROJECT}-cache" "${PROJECT}-claude-state" >/dev/null 2>&1 || true
   "$CLI" down "$IMPORT_PROJECT" >/dev/null 2>&1 || true
-  rm -rf "$HOME/.isolator/projects/$IMPORT_PROJECT"
+  rm -rf "$HOME/.moor/projects/$IMPORT_PROJECT"
   docker volume rm "${IMPORT_PROJECT}-workspace" "${IMPORT_PROJECT}-cache" "${IMPORT_PROJECT}-claude-state" >/dev/null 2>&1 || true
   rm -rf "$(dirname "$IMPORT_SRC")"
-  rm -f /tmp/isolator-e2e-out.$$ /tmp/"${PROJECT}"-audit-*.tar.gz
+  rm -f /tmp/moor-e2e-out.$$ /tmp/"${PROJECT}"-audit-*.tar.gz
 }
 trap cleanup EXIT
 
@@ -82,20 +82,20 @@ fi
 
 step "build images (skipped if already present)"
 for img in base node rust python egress; do
-  if ! docker image inspect "isolator/${img}:latest" >/dev/null 2>&1; then
-    echo "  isolator/${img}:latest missing — run ./images/build.sh first"
+  if ! docker image inspect "moor/${img}:latest" >/dev/null 2>&1; then
+    echo "  moor/${img}:latest missing — run ./images/build.sh first"
     exit 1
   fi
 done
-pass "all isolator images present"
+pass "all moor images present"
 
 step "create project '$PROJECT'"
-expect_success "isolator new" "$CLI" new "$PROJECT" --image isolator/base:latest
+expect_success "moor new" "$CLI" new "$PROJECT" --image moor/base:latest
 
 step "static hardening + active breakout battery"
 SELFTEST_OUT=$("$CLI" selftest "$PROJECT" 2>&1)
 SELFTEST_EXIT=$?
-if [ "$SELFTEST_EXIT" -eq 0 ]; then pass "isolator selftest exits 0"; else fail "isolator selftest exits 0"; fi
+if [ "$SELFTEST_EXIT" -eq 0 ]; then pass "moor selftest exits 0"; else fail "moor selftest exits 0"; fi
 indent "$SELFTEST_OUT"
 assert_contains "selftest reports all checks passed" "$SELFTEST_OUT" "all checks passed"
 assert_contains "selftest ran the canary-domain probe" "$SELFTEST_OUT" "canary domain is unreachable"
@@ -111,7 +111,7 @@ expect_failure "curl https://example.com" "$CLI" run "$PROJECT" -- curl -sS -o /
 step "git push is tagged distinctly in the audit chain"
 "$CLI" run "$PROJECT" -- git -C /workspace init -q >/dev/null 2>&1 || true
 "$CLI" run "$PROJECT" -- git -C /workspace push origin main >/dev/null 2>&1 || true
-CHAIN_FILE="$HOME/.isolator/projects/$PROJECT/audit/chain.jsonl"
+CHAIN_FILE="$HOME/.moor/projects/$PROJECT/audit/chain.jsonl"
 if grep -q '"kind":"git-push"' "$CHAIN_FILE" 2>/dev/null; then
   pass "a git-push attempt was tagged kind=git-push in the chain"
 else
@@ -155,7 +155,7 @@ indent "$RESTORED_OUT"
 
 step "audit: export bundle"
 EXPORT_DIR="/tmp"
-expect_success "isolator audit --export" "$CLI" audit "$PROJECT" --export "$EXPORT_DIR"
+expect_success "moor audit --export" "$CLI" audit "$PROJECT" --export "$EXPORT_DIR"
 shopt -s nullglob
 BUNDLE_MATCHES=("$EXPORT_DIR"/"${PROJECT}"-audit-*.tar.gz)
 shopt -u nullglob
@@ -175,8 +175,8 @@ mkdir -p "$IMPORT_SRC"
 IMPORT_OUT=$("$CLI" import "$IMPORT_PROJECT" --from "$IMPORT_SRC" 2>&1)
 IMPORT_EXIT=$?
 indent "$IMPORT_OUT"
-if [ "$IMPORT_EXIT" -eq 0 ]; then pass "isolator import exits 0"; else fail "isolator import exits 0"; fi
-assert_contains "auto-detected the node image from package.json" "$IMPORT_OUT" "isolator/node:latest"
+if [ "$IMPORT_EXIT" -eq 0 ]; then pass "moor import exits 0"; else fail "moor import exits 0"; fi
+assert_contains "auto-detected the node image from package.json" "$IMPORT_OUT" "moor/node:latest"
 assert_contains "ran keel init (no prior .keel/ in the source)" "$IMPORT_OUT" "keel is initialised"
 
 IMPORT_LOG=$("$CLI" run "$IMPORT_PROJECT" -- git log --oneline 2>&1)

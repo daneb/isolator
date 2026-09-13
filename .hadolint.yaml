@@ -9,9 +9,9 @@ ignored:
            # hadolint limitation with `FROM ${ARG}`: it can't statically
            # verify a value that only exists via an ARG default, even
            # though every one of these does carry an explicit tag
-           # (`ARG BASE_IMAGE=isolator/base:latest` in images/node,
+           # (`ARG BASE_IMAGE=moor/base:latest` in images/node,
            # images/python, images/rust — see images/build.sh, which
-           # always passes --build-arg BASE_IMAGE=isolator/base:latest
+           # always passes --build-arg BASE_IMAGE=moor/base:latest
            # explicitly too).
   - DL3008 # pin apt package versions — debian:bookworm-slim's own rolling
            # security patches are what we want; a version pin freezes a
@@ -20,10 +20,10 @@ ignored:
            # vulnerabilities, not a frozen apt version.
   - DL3016 # pin npm package versions — @anthropic-ai/claude-code installs
            # unpinned on purpose (see docs/decisions/0002-claude-code-authentication.md:
-           # no auth material baked in, and no isolator-pinned CLI version
+           # no auth material baked in, and no moor-pinned CLI version
            # either — every project always gets the current `claude`).
   - DL3013 # pin pip package versions — pipx is a bootstrapping tool, not a
-           # runtime dependency of anything isolator ships.
+           # runtime dependency of anything moor ships.
   - DL3066 # non-numeric USER — `agent` and `tinyproxy` are real named
            # users created earlier in the same image; numeric-only IDs
            # only help a cross-image UID-mapping scenario this project

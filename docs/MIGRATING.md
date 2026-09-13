@@ -1,22 +1,22 @@
-# Migrating an existing project into isolator
+# Migrating an existing project into moor
 
-`isolator new` is for starting something fresh. `isolator import` is for
+`moor new` is for starting something fresh. `moor import` is for
 bringing something that already exists on your Mac — a project you've
-been working on outside isolator, like keel itself — into a sandbox
+been working on outside moor, like keel itself — into a sandbox
 without losing anything and without ever bind-mounting the source
 directory.
 
 ```bash
-isolator import keel --from ~/Repos/keel
+moor import keel --from ~/Repos/keel
 ```
 
 ## What actually happens
 
 1. **The image is auto-detected** from the source repo's root —
-   `Cargo.toml` → `isolator/rust`, `package.json` → `isolator/node`,
-   `pyproject.toml`/`requirements.txt` → `isolator/python`, otherwise
-   `isolator/base`. Override with `--image` if the guess is wrong.
-2. **A sandbox + egress pair starts**, same as `isolator new`.
+   `Cargo.toml` → `moor/rust`, `package.json` → `moor/node`,
+   `pyproject.toml`/`requirements.txt` → `moor/python`, otherwise
+   `moor/base`. Override with `--image` if the guess is wrong.
+2. **A sandbox + egress pair starts**, same as `moor new`.
 3. **History transfers via a `git bundle`, not a bind mount.** `git -C
    <from> bundle create ... --all` captures every branch and tag into one
    file. That file is streamed into the container (through `docker exec
@@ -39,22 +39,22 @@ isolator import keel --from ~/Repos/keel
    with a note showing you the `git remote add` command to run once
    you've decided where this project should live.
 6. **No remote, `--github` was passed:** a private GitHub repo is created
-   (same confirm-then-create flow as `isolator new --github`) and set as
+   (same confirm-then-create flow as `moor new --github`) and set as
    `origin`.
 7. **Existing keel configuration is respected.** If `.keel/keel.toml` is
    already present (true for keel's own repo, and for anything you'd
-   already run `keel init` on), isolator does **not** re-run `keel init`
+   already run `keel init` on), moor does **not** re-run `keel init`
    — it runs `keel status` instead, so you see the current state without
    risking anything being overwritten. If there's no `.keel/` yet, `keel
-   init` runs, same as `isolator new`.
+   init` runs, same as `moor new`.
 
 ## Verified against a real project
 
 This was tested against keel's own repo, not a toy fixture:
 
 ```
-$ isolator import keel-import-test --from ~/Repos/keel
-==> importing /Users/.../Repos/keel as 'keel-import-test' (image: isolator/rust:latest)
+$ moor import keel-import-test --from ~/Repos/keel
+==> importing /Users/.../Repos/keel as 'keel-import-test' (image: moor/rust:latest)
 ...
 ==> bundling /Users/.../Repos/keel (all branches and tags)
 ==> streaming the bundle into the sandbox and cloning it
@@ -66,8 +66,8 @@ Cloning into '.'...
 
 `git log` inside the sandbox matched the host exactly, both branches
 (`master` and a `claude/...` working branch) came across, `cargo
---version` worked immediately (the `isolator/rust` image auto-selected
-correctly), and `isolator selftest`/`isolator audit --verify` both
+--version` worked immediately (the `moor/rust` image auto-selected
+correctly), and `moor selftest`/`moor audit --verify` both
 passed. See `tests/e2e.sh` for the automated version (using a throwaway
 local repo, since that scenario doesn't need real GitHub access).
 

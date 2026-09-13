@@ -31,7 +31,7 @@ services:
       HTTP_PROXY: "http://egress:8888"
       HTTPS_PROXY: "http://egress:8888"
       NO_PROXY: "localhost,127.0.0.1"
-      ISOLATOR_CANARY_TOKEN: "{{CANARY_TOKEN}}"
+      MOOR_CANARY_TOKEN: "{{CANARY_TOKEN}}"
 {{SECRET_ENV_LINES}}
     volumes:
       - workspace:/workspace
@@ -47,7 +47,7 @@ services:
       - egress
 
   egress:
-    image: isolator/egress:latest
+    image: moor/egress:latest
     container_name: {{PROJECT_NAME}}-egress
     read_only: true
     tmpfs:

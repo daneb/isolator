@@ -1,17 +1,17 @@
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
-pub fn isolator_home() -> Result<PathBuf> {
+pub fn moor_home() -> Result<PathBuf> {
     let home = std::env::var("HOME").context("HOME is not set")?;
-    Ok(PathBuf::from(home).join(".isolator"))
+    Ok(PathBuf::from(home).join(".moor"))
 }
 
 pub fn project_dir(name: &str) -> Result<PathBuf> {
-    Ok(isolator_home()?.join("projects").join(name))
+    Ok(moor_home()?.join("projects").join(name))
 }
 
 pub fn manifest_path(name: &str) -> Result<PathBuf> {
-    Ok(project_dir(name)?.join("isolator.yaml"))
+    Ok(project_dir(name)?.join("moor.yaml"))
 }
 
 pub fn compose_path(name: &str) -> Result<PathBuf> {
@@ -30,7 +30,7 @@ pub fn chain_log_path(name: &str) -> Result<PathBuf> {
 }
 
 /// How many raw lines of the egress gateway's access log have already
-/// been folded into chain.jsonl — lets `isolator audit` be idempotent.
+/// been folded into chain.jsonl — lets `moor audit` be idempotent.
 pub fn egress_offset_path(name: &str) -> Result<PathBuf> {
     Ok(audit_dir(name)?.join(".egress-offset"))
 }
@@ -41,7 +41,7 @@ pub fn ensure_project_dirs(name: &str) -> Result<()> {
 }
 
 pub fn all_project_names() -> Result<Vec<String>> {
-    let projects_dir = isolator_home()?.join("projects");
+    let projects_dir = moor_home()?.join("projects");
     if !projects_dir.exists() {
         return Ok(vec![]);
     }
