@@ -45,3 +45,21 @@ Two things could not be fully verified via `act` (GitHub's real `ubuntu-latest` 
 - Nothing else — `rust`, `rust-security`, `shell-lint`, `docker-lint`, `image-scan`, and `e2e` all ran to completion and passed under `act`, including real `docker build`/`docker compose`/`docker exec` against the host Docker daemon (`act` passes through the host's Docker socket rather than sandboxing it).
 
 `image-scan` and `e2e` each run `./images/build.sh` independently (parallel jobs, not shared state) — a deliberate simplicity-over-speed tradeoff rather than plumbing image artifacts between jobs.
+
+## Verified against real GitHub Actions, not just `act`
+
+After the `act` pass above, this workflow was pushed and watched run for
+real (`gh run watch`) — all 11 jobs passed, including `secret-scan`,
+which is the one job `act` couldn't fully verify locally. The only
+leftover issue was a cosmetic "Node.js 20 is deprecated" annotation on
+several third-party actions; `actions/checkout` was bumped to `v5`
+(confirmed via its `action.yml`: `v4` still declares `node20`, `v5`+
+declares `node24`) to clear it. `rustsec/audit-check@v2` still declares
+`node20` with no newer major published — nothing to bump to; it's a
+non-blocking warning, not a failure, until RustSec cuts one.
+`gitleaks/gitleaks-action` has a `v3` that does declare `node24`, but
+its `action.yml` also newly carries commercial EULA/license-agreement
+language that `v2` doesn't — deliberately staying on `v2` (already
+verified working, and confirmed free for individual use in the actual
+run's own log output) rather than adopt an ambiguous licensing change
+for a cosmetic warning.
