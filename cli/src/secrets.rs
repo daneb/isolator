@@ -77,7 +77,20 @@ pub fn set(project: &str, name: &str) -> Result<()> {
     .context("running `security add-generic-password`")?
     .0;
     proc::require_success("security add-generic-password", status)?;
-    println!("stored {name} for project '{project}' in the macOS Keychain.");
+    // Echo back a length, never the value: with echo disabled during entry
+    // there's otherwise no feedback that a paste registered, so a user
+    // pastes again "just in case" — and since read_hidden_line reads one
+    // line, a token with no embedded newline silently concatenates every
+    // paste into one corrupted value (seen in practice: a value pasted
+    // three times over stored as an exact 3x-length string, still 200 on
+    // `security add-generic-password`, and failed auth much later with an
+    // opaque error). A character count lets the operator sanity-check
+    // against what they expect to have pasted, right here, without ever
+    // displaying the secret itself.
+    println!(
+        "stored {name} for project '{project}' in the macOS Keychain ({} characters — check that matches what you meant to paste).",
+        value.len()
+    );
     Ok(())
 }
 

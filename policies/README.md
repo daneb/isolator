@@ -5,7 +5,7 @@ The flags every sandbox container is started with (rendered into
 
 | Control | Setting | Why |
 | --- | --- | --- |
-| Filesystem | `read_only: true` + `tmpfs: [/tmp]` + a small named cache volume | The container's own root filesystem cannot be modified at runtime; only `/workspace`, `/tmp`, and the package-cache path are writable. |
+| Filesystem | `read_only: true` + `tmpfs: [/tmp]` + small named cache/state volumes | The container's own root filesystem cannot be modified at runtime; only `/workspace`, `/tmp`, the package-cache path, and Claude Code's own state directory (`/home/agent/.claude`, needed for its Bash tool's bookkeeping) are writable — each a named Docker volume, never a host path. |
 | Host mounts | none | See [../docs/THREAT-MODEL.md](../docs/THREAT-MODEL.md) — no bind mount, ever. |
 | `docker.sock` | never mounted | A sandbox with the Docker socket can control every other container, including the egress gateway and other projects' sandboxes. This is treated as equivalent to root on the host and is never granted. |
 | Capabilities | `cap_drop: [ALL]`, nothing added back | The base image needs no Linux capability beyond what an unprivileged process already has (it never binds a port < 1024, never changes file ownership across users, never mounts anything). |

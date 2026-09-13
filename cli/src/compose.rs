@@ -108,6 +108,7 @@ mod tests {
         let rendered = render(&m);
         assert!(rendered.contains("workspace:/workspace"));
         assert!(rendered.contains("cache:/home/agent/.cache"));
+        assert!(rendered.contains("claude-state:/home/agent/.claude"));
         assert!(!rendered.contains("/Users/"));
         assert!(!rendered.contains("${HOME}"));
     }

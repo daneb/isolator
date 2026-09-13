@@ -15,7 +15,14 @@ run against an actual GitHub repo — including the three bugs it found —
 (tested against keel's own repo) into a sandbox, and
 [docs/decisions/0001-container-runtime-choice.md](docs/decisions/0001-container-runtime-choice.md)
 for why this stays on `runc` rather than gVisor or Apple's native
-`container` tool.
+`container` tool, and
+[docs/decisions/0002-claude-code-authentication.md](docs/decisions/0002-claude-code-authentication.md)
+for why Claude Code auth is an injected token rather than a mounted
+`~/.claude`, and
+[docs/examples/ascii-banner](docs/examples/ascii-banner) for a small
+utility built end to end by a real Claude Code agent running inside a
+sandbox — including two real bugs that run found and fixed, and the
+full security/audit verification against the live container.
 
 ## Quick start
 

@@ -36,6 +36,12 @@ services:
     volumes:
       - workspace:/workspace
       - cache:/home/agent/.cache
+      # Claude Code's own session/bookkeeping state (shell snapshots, todo
+      # state, etc.) — without this, the read-only rootfs makes every Bash
+      # tool call inside the agent fail with EROFS on `mkdir
+      # /home/agent/.claude`. A named volume, not a bind mount: still no
+      # host path crosses into the container.
+      - claude-state:/home/agent/.claude
     command: ["sleep", "infinity"]
     depends_on:
       - egress
@@ -69,3 +75,5 @@ volumes:
     name: {{PROJECT_NAME}}-workspace
   cache:
     name: {{PROJECT_NAME}}-cache
+  claude-state:
+    name: {{PROJECT_NAME}}-claude-state

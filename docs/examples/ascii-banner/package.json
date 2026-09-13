@@ -1,0 +1,13 @@
+{
+  "name": "banner-cli",
+  "version": "1.0.0",
+  "description": "ASCII banner CLI utility",
+  "main": "banner.js",
+  "bin": {
+    "banner": "./banner.js"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "license": "MIT"
+}
