@@ -20,7 +20,9 @@ use std::io::{self, Write};
 /// `import` so the confirm-then-create-then-report flow can't drift
 /// between the two.
 pub fn create_github_repo_interactive(name: &str) -> Result<Option<String>> {
-    print!("About to run `gh repo create {name} --private` on your GitHub account. Continue? [y/N] ");
+    print!(
+        "About to run `gh repo create {name} --private` on your GitHub account. Continue? [y/N] "
+    );
     io::stdout().flush().ok();
     let mut answer = String::new();
     io::stdin().read_line(&mut answer)?;
@@ -56,15 +58,7 @@ pub fn compose_up(name: &str) -> Result<()> {
     let compose_path_str = compose_path.to_string_lossy().to_string();
     let status = crate::proc::run_inherit(
         "docker",
-        &[
-            "compose",
-            "-p",
-            name,
-            "-f",
-            &compose_path_str,
-            "up",
-            "-d",
-        ],
+        &["compose", "-p", name, "-f", &compose_path_str, "up", "-d"],
     )?;
     crate::proc::require_success("docker compose up", status)?;
     Ok(())
@@ -78,14 +72,7 @@ pub fn compose_down(name: &str) -> Result<()> {
     let compose_path_str = compose_path.to_string_lossy().to_string();
     let status = crate::proc::run_inherit(
         "docker",
-        &[
-            "compose",
-            "-p",
-            name,
-            "-f",
-            &compose_path_str,
-            "down",
-        ],
+        &["compose", "-p", name, "-f", &compose_path_str, "down"],
     )?;
     crate::proc::require_success("docker compose down", status)?;
     Ok(())

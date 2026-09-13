@@ -54,7 +54,13 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
                 ".",
             ],
         )?;
-        audit::log_exec(name, &m, "exec", &["git".into(), "clone".into(), clone_url], status.code())?;
+        audit::log_exec(
+            name,
+            &m,
+            "exec",
+            &["git".into(), "clone".into(), clone_url],
+            status.code(),
+        )?;
         if !status.success() {
             println!(
                 "note: clone failed — if '{repo}' is private, export GITHUB_TOKEN (e.g. `export GITHUB_TOKEN=$(gh auth token)`) before `isolator new`/`up` so the sandbox can authenticate."

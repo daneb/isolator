@@ -57,7 +57,10 @@ pub fn run(name: &str, verify: bool, export: Option<PathBuf>) -> Result<()> {
          into one archive."
     );
     if tripwires > 0 {
-        println!("\n{tripwires} TRIPWIRE entr{} in this trail — see docs/THREAT-MODEL.md.", if tripwires == 1 { "y" } else { "ies" });
+        println!(
+            "\n{tripwires} TRIPWIRE entr{} in this trail — see docs/THREAT-MODEL.md.",
+            if tripwires == 1 { "y" } else { "ies" }
+        );
     }
     Ok(())
 }

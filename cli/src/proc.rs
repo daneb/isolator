@@ -27,7 +27,6 @@ pub fn run_capture(program: &str, args: &[&str]) -> Result<(ExitStatus, String)>
     Ok((output.status, stdout))
 }
 
-
 /// Run a command, streaming a local file's bytes to its stdin. Used to get
 /// a file into a container whose root filesystem is read-only: `docker
 /// cp`'s own copy mechanism needs write access it doesn't have there even

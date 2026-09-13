@@ -8,7 +8,7 @@ pub fn run(project: &str) -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<24} {}", "SECRET", "SOURCE");
+    println!("{:<24} SOURCE", "SECRET");
     for (name, source) in secrets::status(project, &m.secrets) {
         let label = match source {
             secrets::Source::Env => "your shell's environment",

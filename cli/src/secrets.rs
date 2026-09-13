@@ -185,7 +185,10 @@ mod tests {
 
     #[test]
     fn service_name_is_scoped_by_project_and_secret_name() {
-        assert_eq!(service_name("my-app", "GITHUB_TOKEN"), "isolator-my-app-GITHUB_TOKEN");
+        assert_eq!(
+            service_name("my-app", "GITHUB_TOKEN"),
+            "isolator-my-app-GITHUB_TOKEN"
+        );
         assert_ne!(
             service_name("project-a", "API_KEY"),
             service_name("project-b", "API_KEY"),
@@ -197,7 +200,10 @@ mod tests {
     fn status_reports_env_before_checking_keychain() {
         std::env::set_var("ISOLATOR_TEST_STATUS_SECRET", "some-value");
         let result = status("some-project", &["ISOLATOR_TEST_STATUS_SECRET".to_string()]);
-        assert_eq!(result, vec![("ISOLATOR_TEST_STATUS_SECRET".to_string(), Source::Env)]);
+        assert_eq!(
+            result,
+            vec![("ISOLATOR_TEST_STATUS_SECRET".to_string(), Source::Env)]
+        );
         std::env::remove_var("ISOLATOR_TEST_STATUS_SECRET");
     }
 
@@ -210,7 +216,10 @@ mod tests {
         );
         assert_eq!(
             result,
-            vec![("ISOLATOR_TEST_STATUS_SECRET_UNSET".to_string(), Source::Missing)]
+            vec![(
+                "ISOLATOR_TEST_STATUS_SECRET_UNSET".to_string(),
+                Source::Missing
+            )]
         );
     }
 }

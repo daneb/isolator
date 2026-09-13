@@ -1,0 +1,157 @@
+name: CI
+
+# Every job here is checked to actually pass against this repo before
+# being wired in — see docs/CI.md for what was run locally (cargo
+# fmt/clippy/test/audit/deny, shellcheck, hadolint, gitleaks, a full
+# trivy image scan of every built image, and the real tests/e2e.sh
+# against live containers) and what each finding turned into: a real fix
+# in the code/Dockerfiles, or a documented, narrow suppression — never a
+# silent "make the red X go away."
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cli
+      - name: cargo fmt --check
+        run: cargo fmt --check
+        working-directory: cli
+      - name: cargo clippy -D warnings
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: cli
+      - name: cargo test
+        run: cargo test
+        working-directory: cli
+
+  rust-security:
+    name: Rust (advisories, licenses, sources)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cli
+      - name: cargo audit (RustSec advisory DB)
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: cli
+      - name: cargo deny (advisories, licenses, bans, sources)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: cli/Cargo.toml
+
+  shell-lint:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: .
+          ignore_paths: cli/target
+
+  docker-lint:
+    name: Hadolint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile:
+          - images/base/Dockerfile
+          - images/node/Dockerfile
+          - images/python/Dockerfile
+          - images/rust/Dockerfile
+          - proxy/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - name: hadolint ${{ matrix.dockerfile }}
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+          config: .hadolint.yaml
+
+  secret-scan:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  image-scan:
+    name: Build images + Trivy CVE scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build every isolator image
+        run: ./images/build.sh
+      # One job, one build pass, five scans — a matrix here would rebuild
+      # all five images from scratch per matrix leg instead of once.
+      - name: trivy scan base (fixable HIGH/CRITICAL only — see images/base/Dockerfile)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: isolator/base:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: trivy scan node
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: isolator/node:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: trivy scan rust
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: isolator/rust:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: trivy scan python
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: isolator/python:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: trivy scan egress
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: isolator/egress:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+
+  e2e:
+    name: End-to-end (real containers)
+    runs-on: ubuntu-latest
+    needs: [rust, shell-lint, docker-lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cli
+      - name: build every isolator image
+        run: ./images/build.sh
+      - name: tests/e2e.sh (real Docker containers, no GitHub calls)
+        run: bash tests/e2e.sh

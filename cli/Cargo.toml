@@ -3,6 +3,7 @@ name = "isolator"
 version = "0.1.0"
 edition = "2021"
 description = "Control CLI for containerized, keel-driven AI development sandboxes"
+publish = false
 
 [[bin]]
 name = "isolator"

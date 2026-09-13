@@ -2,7 +2,8 @@
 # project sandbox's only route to the internet.
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# `upgrade`, not just `install` — see images/base/Dockerfile for why.
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     tinyproxy \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/log/tinyproxy && chown tinyproxy:tinyproxy /var/log/tinyproxy

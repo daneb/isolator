@@ -32,9 +32,7 @@ fn parse_github_repo_slug(url: &str) -> Option<String> {
         .or_else(|| url.strip_prefix("http://github.com/"))
         .or_else(|| url.strip_prefix("ssh://git@github.com/"))
         .or_else(|| url.strip_prefix("git@github.com:"))?;
-    let mut parts = rest.splitn(2, '/');
-    let owner = parts.next()?;
-    let repo = parts.next()?;
+    let (owner, repo) = rest.split_once('/')?;
     if owner.is_empty() || repo.is_empty() || repo.contains('/') {
         return None;
     }
@@ -60,14 +58,20 @@ pub fn run(name: &str, from: &Path, image: Option<String>, github: bool) -> Resu
     }
 
     let image = image.unwrap_or_else(|| detect_image(&from).to_string());
-    println!("==> importing {} as '{name}' (image: {image})", from.display());
+    println!(
+        "==> importing {} as '{name}' (image: {image})",
+        from.display()
+    );
 
     let mut m = Manifest::new(name, &image);
 
     // Preserve the source repo's existing GitHub remote, if it has one —
     // this is the common case for something like keel, which already
     // lives at github.com/<owner>/keel.
-    let (status, out) = proc::run_capture("git", &["-C", &from.to_string_lossy(), "remote", "get-url", "origin"])?;
+    let (status, out) = proc::run_capture(
+        "git",
+        &["-C", &from.to_string_lossy(), "remote", "get-url", "origin"],
+    )?;
     let existing_remote = if status.success() {
         Some(out.trim().to_string())
     } else {
@@ -99,13 +103,30 @@ pub fn run(name: &str, from: &Path, image: Option<String>, github: bool) -> Resu
     println!("==> checking for existing keel configuration");
     let (status, _) = proc::run_capture(
         "docker",
-        &["exec", &m.sandbox_container(), "test", "-f", ".keel/keel.toml"],
+        &[
+            "exec",
+            &m.sandbox_container(),
+            "test",
+            "-f",
+            ".keel/keel.toml",
+        ],
     )?;
     if status.success() {
-        println!("   .keel/keel.toml already present — leaving it as-is (not re-running `keel init`)");
-        let status = proc::run_inherit("docker", &["exec", &m.sandbox_container(), "keel", "status"]);
+        println!(
+            "   .keel/keel.toml already present — leaving it as-is (not re-running `keel init`)"
+        );
+        let status = proc::run_inherit(
+            "docker",
+            &["exec", &m.sandbox_container(), "keel", "status"],
+        );
         if let Ok(s) = status {
-            audit::log_exec(name, &m, "exec", &["keel".into(), "status".into()], s.code())?;
+            audit::log_exec(
+                name,
+                &m,
+                "exec",
+                &["keel".into(), "status".into()],
+                s.code(),
+            )?;
         }
     } else {
         println!("   none found — running `keel init` inside the sandbox");
@@ -142,7 +163,10 @@ fn import_history(name: &str, m: &Manifest, from: &Path, real_remote: Option<&st
     let from_str = from.to_string_lossy().to_string();
 
     println!("==> bundling {} (all branches and tags)", from.display());
-    let status = proc::run_inherit("git", &["-C", &from_str, "bundle", "create", &bundle_str, "--all"])?;
+    let status = proc::run_inherit(
+        "git",
+        &["-C", &from_str, "bundle", "create", &bundle_str, "--all"],
+    )?;
     proc::require_success("git bundle create", status)?;
 
     let container = m.sandbox_container();
@@ -154,17 +178,43 @@ fn import_history(name: &str, m: &Manifest, from: &Path, real_remote: Option<&st
     // writable path.
     let status = proc::run_with_stdin_file(
         "docker",
-        &["exec", "-i", &container, "sh", "-c", "cat > /tmp/import.bundle"],
+        &[
+            "exec",
+            "-i",
+            &container,
+            "sh",
+            "-c",
+            "cat > /tmp/import.bundle",
+        ],
         &bundle_path,
     )?;
     proc::require_success("streaming import bundle into sandbox", status)?;
     let _ = std::fs::remove_file(&bundle_path);
 
-    let status = proc::run_inherit("docker", &["exec", &container, "git", "clone", "/tmp/import.bundle", "."])?;
-    audit::log_exec(name, m, "exec", &["git".into(), "clone".into(), "<imported bundle>".into()], status.code())?;
+    let status = proc::run_inherit(
+        "docker",
+        &[
+            "exec",
+            &container,
+            "git",
+            "clone",
+            "/tmp/import.bundle",
+            ".",
+        ],
+    )?;
+    audit::log_exec(
+        name,
+        m,
+        "exec",
+        &["git".into(), "clone".into(), "<imported bundle>".into()],
+        status.code(),
+    )?;
     proc::require_success("git clone (imported bundle) in sandbox", status)?;
 
-    let _ = proc::run_capture("docker", &["exec", &container, "rm", "-f", "/tmp/import.bundle"]);
+    let _ = proc::run_capture(
+        "docker",
+        &["exec", &container, "rm", "-f", "/tmp/import.bundle"],
+    );
 
     // `git clone` only checks out a local branch for the bundle's default
     // ref — every other branch lands as a remote-tracking ref under
@@ -182,16 +232,29 @@ fn import_history(name: &str, m: &Manifest, from: &Path, real_remote: Option<&st
     // was one, or drop it if there wasn't, rather than leaving a remote
     // that can only ever fail.
     if let Some(url) = real_remote {
-        let status = proc::run_inherit("docker", &["exec", &container, "git", "remote", "set-url", "origin", url])?;
+        let status = proc::run_inherit(
+            "docker",
+            &[
+                "exec", &container, "git", "remote", "set-url", "origin", url,
+            ],
+        )?;
         proc::require_success("git remote set-url origin", status)?;
         println!("   origin set to {url}");
     } else if let Some(slug) = &m.github_repo {
         let url = format!("https://github.com/{slug}.git");
-        let status = proc::run_inherit("docker", &["exec", &container, "git", "remote", "set-url", "origin", &url])?;
+        let status = proc::run_inherit(
+            "docker",
+            &[
+                "exec", &container, "git", "remote", "set-url", "origin", &url,
+            ],
+        )?;
         proc::require_success("git remote set-url origin", status)?;
         println!("   origin set to {url} (created by --github)");
     } else {
-        let _ = proc::run_capture("docker", &["exec", &container, "git", "remote", "remove", "origin"]);
+        let _ = proc::run_capture(
+            "docker",
+            &["exec", &container, "git", "remote", "remove", "origin"],
+        );
         println!("   no remote configured — set one with `isolator run {name} -- git remote add origin <url>` when ready");
     }
 
@@ -294,7 +357,10 @@ mod tests {
 
     #[test]
     fn returns_none_for_non_github_remotes() {
-        assert_eq!(parse_github_repo_slug("https://gitlab.com/daneb/keel.git"), None);
+        assert_eq!(
+            parse_github_repo_slug("https://gitlab.com/daneb/keel.git"),
+            None
+        );
         assert_eq!(parse_github_repo_slug("/Users/danebalia/Repos/keel"), None);
         assert_eq!(parse_github_repo_slug(""), None);
     }

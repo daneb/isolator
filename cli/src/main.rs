@@ -108,18 +108,35 @@ fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Command::New { name, image, github } => commands::new_cmd::run(&name, &image, github),
-        Command::Import { name, from, image, github } => commands::import_cmd::run(&name, &from, image, github),
+        Command::New {
+            name,
+            image,
+            github,
+        } => commands::new_cmd::run(&name, &image, github),
+        Command::Import {
+            name,
+            from,
+            image,
+            github,
+        } => commands::import_cmd::run(&name, &from, image, github),
         Command::Up { name } => commands::up::run(&name),
         Command::Down { name } => commands::down::run(&name),
         Command::Shell { name } => commands::shell::run(&name),
         Command::Run { name, cmd } => commands::run_cmd::run(&name, &cmd),
         Command::Status => commands::status::run(),
-        Command::Audit { name, verify, export } => commands::audit_cmd::run(&name, verify, export),
+        Command::Audit {
+            name,
+            verify,
+            export,
+        } => commands::audit_cmd::run(&name, verify, export),
         Command::Selftest { name } => commands::selftest::run(&name),
         Command::Secrets(SecretsCommand::Set { project, name }) => secrets::set(&project, &name),
-        Command::Secrets(SecretsCommand::Unset { project, name }) => secrets::unset(&project, &name),
-        Command::Secrets(SecretsCommand::Status { project }) => commands::secrets_status::run(&project),
+        Command::Secrets(SecretsCommand::Unset { project, name }) => {
+            secrets::unset(&project, &name)
+        }
+        Command::Secrets(SecretsCommand::Status { project }) => {
+            commands::secrets_status::run(&project)
+        }
     };
 
     if let Err(e) = result {

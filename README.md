@@ -24,6 +24,13 @@ utility built end to end by a real Claude Code agent running inside a
 sandbox — including two real bugs that run found and fixed, and the
 full security/audit verification against the live container.
 
+[docs/CI.md](docs/CI.md) covers what runs in `.github/workflows/ci.yml`
+on every push/PR — Rust lint/test/audit/deny, shellcheck, hadolint,
+gitleaks, a Trivy CVE scan of every built image, and the real
+`tests/e2e.sh` against live containers — and, importantly, what each of
+those actually found and fixed versus what's deliberately (and
+narrowly) suppressed, with the reasoning inline.
+
 ## Quick start
 
 ```bash
@@ -109,6 +116,9 @@ Note: whether `keel` invokes the `claude` driver (vs. falling back to
   throwaway local multi-branch repo end-to-end (image auto-detect, `keel
   init`, both branches present, selftest still passes). Requires the
   images to already be built (`./images/build.sh`).
+- Both of the above, plus security/quality scanning (Rust lint/audit/deny,
+  shellcheck, hadolint, gitleaks, Trivy image CVE scans), run in CI on
+  every push/PR — see [docs/CI.md](docs/CI.md).
 
 ## Status
 

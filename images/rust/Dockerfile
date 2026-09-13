@@ -12,5 +12,8 @@ ENV RUSTUP_HOME=/home/agent/.rustup \
     CARGO_HOME=/home/agent/.cargo \
     PATH=/home/agent/.cargo/bin:$PATH
 
+# See images/base/Dockerfile for why pipefail matters for a curl | sh RUN.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --profile minimal --default-toolchain stable

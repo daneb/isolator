@@ -16,11 +16,35 @@ FROM debian:bookworm-slim AS runtime
 ARG AGENT_UID=10001
 ARG AGENT_GID=10001
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# dash (Debian's default RUN shell) has no `pipefail` — without it, a
+# failed `curl` in the pipe below would still let `bash -` run on empty
+# input and exit 0, silently producing a Node-less image instead of a
+# failed build.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# `upgrade`, not just `install`: debian:bookworm-slim's own base layer can
+# be older than Debian's current security snapshot, so packages already
+# patched upstream (e.g. libpcre2) sit un-upgraded until something forces
+# it. A Trivy image scan in CI (.github/workflows/ci.yml) fails the build
+# on any HIGH/CRITICAL CVE that already has a fix available — this is
+# what keeps that check passing without hand-tracking individual CVEs.
+# Node 20 reached upstream end-of-life in April 2026 — no more security
+# patches at all, from Node itself, ever, regardless of what else this
+# image does. 22.x is still within its LTS support window.
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     git curl jq ripgrep ca-certificates gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# npm ships its own vendored dependencies (tar, minimatch, glob, ...) —
+# the version nodesource's setup script installs is routinely behind on
+# CVE fixes for those. Pinned to the npm 11 line (not `@latest`, which
+# has already moved to requiring Node >=22.22/24.15 and would break this
+# build again the next time npm cuts a major) for a version compatible
+# with this Node line that still carries current vendored-dependency
+# fixes.
+RUN npm install -g npm@11 && npm cache clean --force
 
 # Claude Code CLI. No auth material baked in — an API key/token is
 # injected as an env var at `isolator up`, never stored in the image.
@@ -29,7 +53,7 @@ RUN npm install -g @anthropic-ai/claude-code && npm cache clean --force
 COPY --from=keel-build /usr/local/cargo/bin/keel /usr/local/bin/keel
 
 RUN groupadd -g "${AGENT_GID}" agent \
-    && useradd -m -u "${AGENT_UID}" -g "${AGENT_GID}" -s /bin/bash agent \
+    && useradd -l -m -u "${AGENT_UID}" -g "${AGENT_GID}" -s /bin/bash agent \
     && mkdir -p /workspace /home/agent/.cache /home/agent/.claude \
     && chown -R agent:agent /workspace /home/agent/.cache /home/agent/.claude
 

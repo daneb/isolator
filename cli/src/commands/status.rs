@@ -8,7 +8,7 @@ pub fn run() -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<20} {:<24} {:<10} {}", "NAME", "IMAGE", "STATUS", "GITHUB");
+    println!("{:<20} {:<24} {:<10} GITHUB", "NAME", "IMAGE", "STATUS");
     for name in names {
         let manifest_path = paths::manifest_path(&name)?;
         if !manifest_path.exists() {
@@ -25,11 +25,7 @@ pub fn run() -> Result<()> {
                 "{{.Status}}",
             ],
         )?;
-        let running = if out.trim().is_empty() {
-            "down"
-        } else {
-            "up"
-        };
+        let running = if out.trim().is_empty() { "down" } else { "up" };
         println!(
             "{:<20} {:<24} {:<10} {}",
             m.name,

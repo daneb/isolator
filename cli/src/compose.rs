@@ -94,9 +94,14 @@ mod tests {
     #[test]
     fn extra_allow_domains_joined_with_commas() {
         let mut m = Manifest::new("sample-app", "isolator/node:latest");
-        m.egress.allow = vec!["registry.npmjs.org".to_string(), "example-registry.dev".to_string()];
+        m.egress.allow = vec![
+            "registry.npmjs.org".to_string(),
+            "example-registry.dev".to_string(),
+        ];
         let rendered = render(&m);
-        assert!(rendered.contains("EXTRA_ALLOW_DOMAINS: \"registry.npmjs.org,example-registry.dev\""));
+        assert!(
+            rendered.contains("EXTRA_ALLOW_DOMAINS: \"registry.npmjs.org,example-registry.dev\"")
+        );
     }
 
     #[test]

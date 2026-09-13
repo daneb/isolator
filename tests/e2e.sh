@@ -18,6 +18,13 @@ pass() { echo "  [PASS] $1"; }
 fail() { echo "  [FAIL] $1"; FAILURES=$((FAILURES + 1)); }
 step() { echo; echo "== $1 =="; }
 
+indent() {
+  local line
+  while IFS= read -r line; do
+    echo "         $line"
+  done <<<"$1"
+}
+
 expect_success() {
   local desc="$1"; shift
   if "$@" >/tmp/isolator-e2e-out.$$ 2>&1; then
@@ -50,16 +57,17 @@ assert_contains() {
   fi
 }
 
+# shellcheck disable=SC2329 # invoked indirectly via `trap cleanup EXIT` below
 cleanup() {
   step "cleanup"
   "$CLI" down "$PROJECT" >/dev/null 2>&1 || true
   rm -rf "$HOME/.isolator/projects/$PROJECT"
-  docker volume rm "${PROJECT}-workspace" "${PROJECT}-cache" >/dev/null 2>&1 || true
+  docker volume rm "${PROJECT}-workspace" "${PROJECT}-cache" "${PROJECT}-claude-state" >/dev/null 2>&1 || true
   "$CLI" down "$IMPORT_PROJECT" >/dev/null 2>&1 || true
   rm -rf "$HOME/.isolator/projects/$IMPORT_PROJECT"
-  docker volume rm "${IMPORT_PROJECT}-workspace" "${IMPORT_PROJECT}-cache" >/dev/null 2>&1 || true
+  docker volume rm "${IMPORT_PROJECT}-workspace" "${IMPORT_PROJECT}-cache" "${IMPORT_PROJECT}-claude-state" >/dev/null 2>&1 || true
   rm -rf "$(dirname "$IMPORT_SRC")"
-  rm -f /tmp/isolator-e2e-out.$$ /tmp/isolator-e2e-export-$$*.tar.gz
+  rm -f /tmp/isolator-e2e-out.$$ /tmp/"${PROJECT}"-audit-*.tar.gz
 }
 trap cleanup EXIT
 
@@ -86,8 +94,9 @@ expect_success "isolator new" "$CLI" new "$PROJECT" --image isolator/base:latest
 
 step "static hardening + active breakout battery"
 SELFTEST_OUT=$("$CLI" selftest "$PROJECT" 2>&1)
-if [ $? -eq 0 ]; then pass "isolator selftest exits 0"; else fail "isolator selftest exits 0"; fi
-echo "$SELFTEST_OUT" | sed 's/^/         /'
+SELFTEST_EXIT=$?
+if [ "$SELFTEST_EXIT" -eq 0 ]; then pass "isolator selftest exits 0"; else fail "isolator selftest exits 0"; fi
+indent "$SELFTEST_OUT"
 assert_contains "selftest reports all checks passed" "$SELFTEST_OUT" "all checks passed"
 assert_contains "selftest ran the canary-domain probe" "$SELFTEST_OUT" "canary domain is unreachable"
 assert_contains "selftest ran the read-only-fs probe" "$SELFTEST_OUT" "root filesystem rejects writes"
@@ -117,7 +126,8 @@ assert_contains "audit chain recorded the example.com deny" "$AUDIT_OUT" "exampl
 
 step "audit: chain verifies OK before tampering"
 VERIFY_OUT=$("$CLI" audit "$PROJECT" --verify 2>&1)
-if [ $? -eq 0 ]; then pass "verify exits 0 on an untampered chain"; else fail "verify exits 0 on an untampered chain"; fi
+VERIFY_EXIT=$?
+if [ "$VERIFY_EXIT" -eq 0 ]; then pass "verify exits 0 on an untampered chain"; else fail "verify exits 0 on an untampered chain"; fi
 assert_contains "verify reports chain OK" "$VERIFY_OUT" "chain OK"
 
 step "audit: a live tamper attempt against the chain file is detected"
@@ -139,13 +149,17 @@ if [ "$TAMPER_EXIT" -ne 0 ]; then pass "verify exits non-zero after tampering"; 
 assert_contains "verify reports TAMPERED" "$TAMPER_OUT" "TAMPERED"
 mv "${CHAIN_FILE}.bak" "$CHAIN_FILE"
 RESTORED_OUT=$("$CLI" audit "$PROJECT" --verify 2>&1)
-if [ $? -eq 0 ]; then pass "restoring the original file verifies OK again"; else fail "restoring the original file verifies OK again"; fi
-echo "$RESTORED_OUT" | sed 's/^/         /'
+RESTORED_EXIT=$?
+if [ "$RESTORED_EXIT" -eq 0 ]; then pass "restoring the original file verifies OK again"; else fail "restoring the original file verifies OK again"; fi
+indent "$RESTORED_OUT"
 
 step "audit: export bundle"
 EXPORT_DIR="/tmp"
 expect_success "isolator audit --export" "$CLI" audit "$PROJECT" --export "$EXPORT_DIR"
-BUNDLE=$(ls -t "$EXPORT_DIR"/"${PROJECT}"-audit-*.tar.gz 2>/dev/null | head -1)
+shopt -s nullglob
+BUNDLE_MATCHES=("$EXPORT_DIR"/"${PROJECT}"-audit-*.tar.gz)
+shopt -u nullglob
+BUNDLE="${BUNDLE_MATCHES[0]:-}"
 if [ -n "${BUNDLE:-}" ] && tar -tzf "$BUNDLE" | grep -q "chain.jsonl"; then
   pass "export bundle exists and contains chain.jsonl"
   rm -f "$BUNDLE"
@@ -160,7 +174,7 @@ mkdir -p "$IMPORT_SRC"
   && git checkout -qb a-second-branch && git checkout -q -)
 IMPORT_OUT=$("$CLI" import "$IMPORT_PROJECT" --from "$IMPORT_SRC" 2>&1)
 IMPORT_EXIT=$?
-echo "$IMPORT_OUT" | sed 's/^/         /'
+indent "$IMPORT_OUT"
 if [ "$IMPORT_EXIT" -eq 0 ]; then pass "isolator import exits 0"; else fail "isolator import exits 0"; fi
 assert_contains "auto-detected the node image from package.json" "$IMPORT_OUT" "isolator/node:latest"
 assert_contains "ran keel init (no prior .keel/ in the source)" "$IMPORT_OUT" "keel is initialised"
@@ -171,7 +185,13 @@ IMPORT_BRANCHES=$("$CLI" run "$IMPORT_PROJECT" -- git branch -a 2>&1)
 assert_contains "the second branch came across too (--all bundle)" "$IMPORT_BRANCHES" "a-second-branch"
 
 SELFTEST2_OUT=$("$CLI" selftest "$IMPORT_PROJECT" 2>&1)
-if [ $? -eq 0 ]; then pass "imported project passes selftest too"; else fail "imported project passes selftest too"; fi
+SELFTEST2_EXIT=$?
+if [ "$SELFTEST2_EXIT" -eq 0 ]; then
+  pass "imported project passes selftest too"
+else
+  fail "imported project passes selftest too"
+  indent "$SELFTEST2_OUT"
+fi
 
 echo
 if [ "$FAILURES" -eq 0 ]; then

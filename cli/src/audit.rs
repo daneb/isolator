@@ -41,9 +41,11 @@ fn last_entry(path: &Path) -> Result<Option<ChainEntry>> {
     }
     let text = std::fs::read_to_string(path)?;
     match text.lines().rev().find(|l| !l.trim().is_empty()) {
-        Some(line) => Ok(Some(
-            serde_json::from_str(line).with_context(|| format!("parsing last line of {}", path.display()))?,
-        )),
+        Some(line) => {
+            Ok(Some(serde_json::from_str(line).with_context(|| {
+                format!("parsing last line of {}", path.display())
+            })?))
+        }
         None => Ok(None),
     }
 }
@@ -112,7 +114,10 @@ pub fn verify_chain(path: &Path) -> Result<VerifyOutcome> {
         if entry.seq != expected_seq {
             return Ok(VerifyOutcome::Tampered {
                 at_seq: entry.seq,
-                reason: format!("expected seq {expected_seq}, found {} (an entry was deleted or reordered)", entry.seq),
+                reason: format!(
+                    "expected seq {expected_seq}, found {} (an entry was deleted or reordered)",
+                    entry.seq
+                ),
             });
         }
         if entry.prev_hash != prev_hash {
@@ -121,11 +126,18 @@ pub fn verify_chain(path: &Path) -> Result<VerifyOutcome> {
                 reason: "prev_hash does not match the preceding entry's hash".to_string(),
             });
         }
-        let recomputed = compute_hash(&entry.prev_hash, entry.seq, &entry.ts, &entry.kind, &entry.data);
+        let recomputed = compute_hash(
+            &entry.prev_hash,
+            entry.seq,
+            &entry.ts,
+            &entry.kind,
+            &entry.data,
+        );
         if recomputed != entry.hash {
             return Ok(VerifyOutcome::Tampered {
                 at_seq: entry.seq,
-                reason: "hash does not match entry contents (the entry itself was edited)".to_string(),
+                reason: "hash does not match entry contents (the entry itself was edited)"
+                    .to_string(),
             });
         }
         prev_hash = entry.hash;
@@ -157,6 +169,83 @@ fn redact_argv(argv: &[String], secret_names: &[String]) -> Vec<String> {
     argv.iter().map(|a| redact(a, secret_names)).collect()
 }
 
+/// Log one `isolator run`/`shell`/`new`-driven command. `kind` lets
+/// callers flag a command as something more specific than a routine
+/// exec — e.g. `run_cmd` tags anything that looks like `git push` as
+/// "git-push" instead of "exec", since that's the one channel through
+/// which code actually leaves the sandbox (see docs/THREAT-MODEL.md,
+/// "why not a pre-push hook").
+pub fn log_exec(
+    project: &str,
+    m: &Manifest,
+    kind: &str,
+    argv: &[String],
+    exit_code: Option<i32>,
+) -> Result<()> {
+    paths::ensure_project_dirs(project)?;
+    let path = paths::chain_log_path(project)?;
+    let data = json!({
+        "project": project,
+        "argv": redact_argv(argv, &m.secrets),
+        "exit_code": exit_code,
+    });
+    append_chained(&path, kind, data)?;
+    Ok(())
+}
+
+/// Fold any new lines from the egress gateway's own access log into the
+/// project's audit chain. Tracks how many raw lines have already been
+/// folded in `audit/.egress-offset` so re-running `isolator audit` is
+/// idempotent. If the egress container was restarted (its log lives on
+/// tmpfs and resets), the offset is detected as stale and reset rather
+/// than silently under- or over-counting.
+pub fn fold_egress_log(project: &str, m: &Manifest) -> Result<usize> {
+    let (status, out) = crate::proc::run_capture(
+        "docker",
+        &[
+            "exec",
+            &m.egress_container(),
+            "cat",
+            "/var/log/tinyproxy/access.log",
+        ],
+    )?;
+    if !status.success() {
+        // Egress container not running / log not there yet — nothing to fold.
+        return Ok(0);
+    }
+
+    let offset_path = paths::egress_offset_path(project)?;
+    let prev_offset: usize = std::fs::read_to_string(&offset_path)
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
+
+    let lines: Vec<&str> = out.lines().collect();
+    let start = if prev_offset > lines.len() {
+        0
+    } else {
+        prev_offset
+    };
+
+    let chain_path = paths::chain_log_path(project)?;
+    let new_text = lines[start..].join("\n");
+    let mut folded = 0;
+    for event in crate::egress_log::parse_log(&new_text) {
+        let kind = match event.severity {
+            crate::egress_log::Severity::Tripwire => "tripwire",
+            crate::egress_log::Severity::Normal => "egress",
+        };
+        append_chained(&chain_path, kind, serde_json::to_value(&event)?)?;
+        folded += 1;
+    }
+
+    if let Some(parent) = offset_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&offset_path, lines.len().to_string())?;
+    Ok(folded)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,14 +254,20 @@ mod tests {
     /// A fresh, never-before-used path under the OS temp dir, unique per
     /// call (parallel test threads must never collide on the same file).
     fn temp_path(label: &str) -> std::path::PathBuf {
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         std::env::temp_dir().join(format!("isolator-audit-test-{label}-{nanos}.jsonl"))
     }
 
     #[test]
     fn empty_or_missing_chain_verifies_ok_with_zero_entries() {
         let path = temp_path("missing");
-        assert_eq!(verify_chain(&path).unwrap(), VerifyOutcome::Ok { entries: 0 });
+        assert_eq!(
+            verify_chain(&path).unwrap(),
+            VerifyOutcome::Ok { entries: 0 }
+        );
     }
 
     #[test]
@@ -182,7 +277,10 @@ mod tests {
         append_chained(&path, "exec", json!({"argv": ["keel", "run", "spec-1"]})).unwrap();
         append_chained(&path, "egress", json!({"domain": "github.com"})).unwrap();
 
-        assert_eq!(verify_chain(&path).unwrap(), VerifyOutcome::Ok { entries: 3 });
+        assert_eq!(
+            verify_chain(&path).unwrap(),
+            VerifyOutcome::Ok { entries: 3 }
+        );
         let _ = std::fs::remove_file(&path);
     }
 
@@ -275,7 +373,10 @@ mod tests {
             prev_hash: "f".repeat(64),
             hash: "0".repeat(64),
         };
-        let mut f = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
         use std::io::Write;
         writeln!(f, "{}", serde_json::to_string(&forged).unwrap()).unwrap();
 
@@ -301,14 +402,18 @@ mod tests {
         let first_line = text.lines().next().unwrap();
         std::fs::write(&path, format!("{first_line}\n")).unwrap();
 
-        assert_eq!(verify_chain(&path).unwrap(), VerifyOutcome::Ok { entries: 1 });
+        assert_eq!(
+            verify_chain(&path).unwrap(),
+            VerifyOutcome::Ok { entries: 1 }
+        );
         let _ = std::fs::remove_file(&path);
     }
 
     #[test]
     fn redact_replaces_secret_env_values_but_leaves_everything_else() {
         std::env::set_var("ISOLATOR_TEST_SECRET_A", "sk-super-secret-value-123");
-        let text = "curl -H 'Authorization: Bearer sk-super-secret-value-123' https://api.example.com";
+        let text =
+            "curl -H 'Authorization: Bearer sk-super-secret-value-123' https://api.example.com";
         let redacted = redact(text, &["ISOLATOR_TEST_SECRET_A".to_string()]);
         assert!(!redacted.contains("sk-super-secret-value-123"));
         assert!(redacted.contains("***REDACTED:ISOLATOR_TEST_SECRET_A***"));
@@ -350,66 +455,4 @@ mod tests {
         assert!(!redacted[2].contains("ghp_abcdef1234567890"));
         std::env::remove_var("ISOLATOR_TEST_SECRET_B");
     }
-}
-
-/// Log one `isolator run`/`shell`/`new`-driven command. `kind` lets
-/// callers flag a command as something more specific than a routine
-/// exec — e.g. `run_cmd` tags anything that looks like `git push` as
-/// "git-push" instead of "exec", since that's the one channel through
-/// which code actually leaves the sandbox (see docs/THREAT-MODEL.md,
-/// "why not a pre-push hook").
-pub fn log_exec(project: &str, m: &Manifest, kind: &str, argv: &[String], exit_code: Option<i32>) -> Result<()> {
-    paths::ensure_project_dirs(project)?;
-    let path = paths::chain_log_path(project)?;
-    let data = json!({
-        "project": project,
-        "argv": redact_argv(argv, &m.secrets),
-        "exit_code": exit_code,
-    });
-    append_chained(&path, kind, data)?;
-    Ok(())
-}
-
-/// Fold any new lines from the egress gateway's own access log into the
-/// project's audit chain. Tracks how many raw lines have already been
-/// folded in `audit/.egress-offset` so re-running `isolator audit` is
-/// idempotent. If the egress container was restarted (its log lives on
-/// tmpfs and resets), the offset is detected as stale and reset rather
-/// than silently under- or over-counting.
-pub fn fold_egress_log(project: &str, m: &Manifest) -> Result<usize> {
-    let (status, out) = crate::proc::run_capture(
-        "docker",
-        &["exec", &m.egress_container(), "cat", "/var/log/tinyproxy/access.log"],
-    )?;
-    if !status.success() {
-        // Egress container not running / log not there yet — nothing to fold.
-        return Ok(0);
-    }
-
-    let offset_path = paths::egress_offset_path(project)?;
-    let prev_offset: usize = std::fs::read_to_string(&offset_path)
-        .ok()
-        .and_then(|s| s.trim().parse().ok())
-        .unwrap_or(0);
-
-    let lines: Vec<&str> = out.lines().collect();
-    let start = if prev_offset > lines.len() { 0 } else { prev_offset };
-
-    let chain_path = paths::chain_log_path(project)?;
-    let new_text = lines[start..].join("\n");
-    let mut folded = 0;
-    for event in crate::egress_log::parse_log(&new_text) {
-        let kind = match event.severity {
-            crate::egress_log::Severity::Tripwire => "tripwire",
-            crate::egress_log::Severity::Normal => "egress",
-        };
-        append_chained(&chain_path, kind, serde_json::to_value(&event)?)?;
-        folded += 1;
-    }
-
-    if let Some(parent) = offset_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(&offset_path, lines.len().to_string())?;
-    Ok(folded)
 }

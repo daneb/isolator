@@ -26,7 +26,11 @@ fn probe(
         Ok((status, out)) => Check {
             label,
             pass: pass_when(status.success(), out.trim()),
-            detail: format!("{detail_prefix}: exit_success={} out={:?}", status.success(), out.trim()),
+            detail: format!(
+                "{detail_prefix}: exit_success={} out={:?}",
+                status.success(),
+                out.trim()
+            ),
         },
         Err(e) => Check {
             label,
@@ -61,14 +65,23 @@ fn run_breakout_battery(container: &str) -> Vec<Check> {
             "root filesystem rejects writes",
             proc::run_capture(
                 "docker",
-                &["exec", container, "sh", "-c", "touch /isolator-write-test 2>&1"],
+                &[
+                    "exec",
+                    container,
+                    "sh",
+                    "-c",
+                    "touch /isolator-write-test 2>&1",
+                ],
             ),
             "touch /isolator-write-test",
             |success, _| !success,
         ),
         probe(
             "docker.sock is not present",
-            proc::run_capture("docker", &["exec", container, "test", "-S", "/var/run/docker.sock"]),
+            proc::run_capture(
+                "docker",
+                &["exec", container, "test", "-S", "/var/run/docker.sock"],
+            ),
             "test -S /var/run/docker.sock",
             |success, _| !success,
         ),
@@ -184,7 +197,9 @@ pub fn run(name: &str) -> Result<()> {
 
     let (status, out) = proc::run_capture("docker", &["inspect", &container])?;
     if !status.success() {
-        anyhow::bail!("`docker inspect {container}` failed — is the project up? (`isolator up {name}`)");
+        anyhow::bail!(
+            "`docker inspect {container}` failed — is the project up? (`isolator up {name}`)"
+        );
     }
     let parsed: Vec<Value> = serde_json::from_str(&out).context("parsing docker inspect output")?;
     let info = parsed
@@ -228,7 +243,9 @@ pub fn run(name: &str) -> Result<()> {
         println!("\nselftest: all checks passed for '{name}'.");
         Ok(())
     } else {
-        anyhow::bail!("selftest: one or more hardening checks failed for '{name}' — see FAIL lines above");
+        anyhow::bail!(
+            "selftest: one or more hardening checks failed for '{name}' — see FAIL lines above"
+        );
     }
 }
 
@@ -264,7 +281,11 @@ mod tests {
         let checks = evaluate(&hardened_container());
         assert_eq!(checks.len(), 8, "expected 8 hardening checks");
         for c in &checks {
-            assert!(c.pass, "expected '{}' to pass, detail={}", c.label, c.detail);
+            assert!(
+                c.pass,
+                "expected '{}' to pass, detail={}",
+                c.label, c.detail
+            );
         }
     }
 
@@ -273,7 +294,10 @@ mod tests {
         let mut v = hardened_container();
         v["HostConfig"]["ReadonlyRootfs"] = json!(false);
         let checks = evaluate(&v);
-        let c = checks.iter().find(|c| c.label == "read-only root filesystem").unwrap();
+        let c = checks
+            .iter()
+            .find(|c| c.label == "read-only root filesystem")
+            .unwrap();
         assert!(!c.pass);
     }
 
@@ -282,7 +306,10 @@ mod tests {
         let mut v = hardened_container();
         v["HostConfig"]["CapDrop"] = json!(["NET_ADMIN"]);
         let checks = evaluate(&v);
-        let c = checks.iter().find(|c| c.label == "all capabilities dropped").unwrap();
+        let c = checks
+            .iter()
+            .find(|c| c.label == "all capabilities dropped")
+            .unwrap();
         assert!(!c.pass);
     }
 
@@ -291,7 +318,10 @@ mod tests {
         let mut v = hardened_container();
         v["HostConfig"]["SecurityOpt"] = json!([]);
         let checks = evaluate(&v);
-        let c = checks.iter().find(|c| c.label == "no-new-privileges set").unwrap();
+        let c = checks
+            .iter()
+            .find(|c| c.label == "no-new-privileges set")
+            .unwrap();
         assert!(!c.pass);
     }
 
@@ -309,7 +339,10 @@ mod tests {
         let mut v = hardened_container();
         v["Mounts"] = json!([{"Type": "bind", "Source": "/Users/danebalia"}]);
         let checks = evaluate(&v);
-        let c = checks.iter().find(|c| c.label == "no host bind mounts").unwrap();
+        let c = checks
+            .iter()
+            .find(|c| c.label == "no host bind mounts")
+            .unwrap();
         assert!(!c.pass);
         assert!(c.detail.contains("/Users/danebalia"));
     }
@@ -351,6 +384,9 @@ mod tests {
         // An empty object should never accidentally evaluate as hardened —
         // every check's default must lean toward FAIL, not PASS.
         let checks = evaluate(&json!({}));
-        assert!(checks.iter().all(|c| !c.pass), "empty inspect output must fail every check");
+        assert!(
+            checks.iter().all(|c| !c.pass),
+            "empty inspect output must fail every check"
+        );
     }
 }

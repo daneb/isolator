@@ -96,7 +96,7 @@ pub fn validate_name(name: &str) -> Result<()> {
         && name
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-        && name.chars().next().map_or(false, |c| c.is_ascii_alphabetic());
+        && name.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
     if !ok {
         anyhow::bail!(
             "invalid project name '{name}': use lowercase letters, digits, and dashes, starting with a letter"

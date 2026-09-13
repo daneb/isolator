@@ -28,7 +28,11 @@ pub fn run(name: &str, cmd: &[String]) -> Result<()> {
     args.extend(cmd.iter().map(|s| s.as_str()));
 
     let status = proc::run_inherit("docker", &args)?;
-    let kind = if looks_like_git_push(cmd) { "git-push" } else { "exec" };
+    let kind = if looks_like_git_push(cmd) {
+        "git-push"
+    } else {
+        "exec"
+    };
     audit::log_exec(name, &m, kind, cmd, status.code())?;
     proc::require_success(&format!("`{}` in {container}", cmd.join(" ")), status)?;
     Ok(())
@@ -51,7 +55,11 @@ mod tests {
 
     #[test]
     fn does_not_flag_other_git_commands() {
-        assert!(!looks_like_git_push(&["git".into(), "clone".into(), "x".into()]));
+        assert!(!looks_like_git_push(&[
+            "git".into(),
+            "clone".into(),
+            "x".into()
+        ]));
         assert!(!looks_like_git_push(&["git".into(), "fetch".into()]));
         assert!(!looks_like_git_push(&["git".into(), "status".into()]));
     }
@@ -59,7 +67,11 @@ mod tests {
     #[test]
     fn does_not_flag_non_git_commands() {
         assert!(!looks_like_git_push(&["keel".into(), "run".into()]));
-        assert!(!looks_like_git_push(&["npm".into(), "run".into(), "push".into()]));
+        assert!(!looks_like_git_push(&[
+            "npm".into(),
+            "run".into(),
+            "push".into()
+        ]));
     }
 
     #[test]
