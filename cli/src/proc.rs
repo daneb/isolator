@@ -27,6 +27,27 @@ pub fn run_capture(program: &str, args: &[&str]) -> Result<(ExitStatus, String)>
     Ok((output.status, stdout))
 }
 
+/// Like `run_capture`, but returns stdout and stderr concatenated
+/// (stdout first). Needed by anything that has to parse *or*
+/// pattern-match a command's own explanatory text regardless of which
+/// stream it chose: keel, for one, puts gate results on stdout but a
+/// hard refusal like "already exists" on stderr — found by actually
+/// separating the streams and comparing, not assumed from `2>&1` output,
+/// which looks identical either way. Not chronologically interleaved
+/// (stdout is read whole, then stderr), which is fine for pattern
+/// matching and for handing the text to an agent, but not for a human
+/// watching two genuinely concurrent streams in real time.
+pub fn run_capture_combined(program: &str, args: &[&str]) -> Result<(ExitStatus, String)> {
+    let output = Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .output()
+        .with_context(|| format!("spawning `{program} {}`", args.join(" ")))?;
+    let mut combined = String::from_utf8_lossy(&output.stdout).into_owned();
+    combined.push_str(&String::from_utf8_lossy(&output.stderr));
+    Ok((output.status, combined))
+}
+
 /// Run a command, streaming a local file's bytes to its stdin. Used to get
 /// a file into a container whose root filesystem is read-only: `docker
 /// cp`'s own copy mechanism needs write access it doesn't have there even

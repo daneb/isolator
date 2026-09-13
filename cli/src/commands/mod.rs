@@ -2,6 +2,7 @@ pub mod audit_cmd;
 pub mod down;
 pub mod import_cmd;
 pub mod new_cmd;
+pub mod recipe;
 pub mod run_cmd;
 pub mod secrets_status;
 pub mod selftest;

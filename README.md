@@ -23,7 +23,11 @@ for why Claude Code auth is an injected token rather than a mounted
 for why every project defaults to Claude Code's own `auto` permission
 mode instead of `--dangerously-skip-permissions`,
 [docs/decisions/0004-rename-to-moor.md](docs/decisions/0004-rename-to-moor.md)
-for why this was `isolator` and is now `moor`, and
+for why this was `isolator` and is now `moor`,
+[docs/decisions/0005-recipe.md](docs/decisions/0005-recipe.md) for
+`moor recipe` — driving keel's spec/gate/plan/gate/run pipeline from a
+loosely-described outcome, stopping for human approval at the same
+checkpoints keel already defines — and
 [docs/examples/ascii-banner](docs/examples/ascii-banner) for a small
 utility built end to end by a real Claude Code agent running inside a
 sandbox — including two real bugs that run found and fixed, and the
@@ -91,6 +95,46 @@ Note: whether `keel` invokes the `claude` driver (vs. falling back to
 `--no-driver` mode) is keel's own credential check, not moor's — see
 [keel](https://github.com/daneb/keel)'s docs if it doesn't pick up
 `CLAUDE_CODE_OAUTH_TOKEN` the same way it picks up `ANTHROPIC_API_KEY`.
+
+## Driving keel from a recipe
+
+Typing out `keel spec new` → author it → `gate g0` → `approve` →
+`plan` → author it → `gate g1` → `approve` → `run` → `approve --stage
+merge` by hand, every time, gets old. `moor recipe` drives that whole
+sequence from one loosely-described outcome, stopping at the same human
+checkpoints keel already defines:
+
+```bash
+moor recipe my-app docs/examples/recipe/greet-function.recipe.md
+```
+
+The recipe file is just YAML front matter (`slug`, `scope`) followed by
+free text describing what you want — not a DSL, deliberately: the free
+text goes to the agent close to verbatim, so writing it loosely is the
+intended way to use this, not a limitation of it.
+
+Every run stops and tells you exactly what to do whenever a human
+decision is actually needed:
+
+```
+PAUSED for human approval. Review the change, then run:
+
+    moor run my-app -- keel approve greet-function --stage spec
+
+...and re-run this recipe to continue.
+```
+
+Content-authoring gates (spec/plan) get a bounded, tool-restricted
+self-correction loop — a failing gate's own output is fed to an agent
+that can only use `Write`/`Edit`, never Bash, so it can fix exactly what
+the gate named without going and implementing the feature instead. The
+actual build (`keel run`) gets no such auto-retry beyond a small attempt
+cap — that step has full tool access, and iterating on it unattended is
+exactly the scope creep this project's security posture argues against,
+so it stops and hands the evidence to a human instead. See
+[ADR-0005](docs/decisions/0005-recipe.md) for the full design, and
+[docs/examples/recipe](docs/examples/recipe) for a real run's output —
+including two real bugs this exercise found, with fixes.
 
 ## Layout
 
@@ -379,3 +423,19 @@ below):
   through `docker exec`'s stdin instead), and cleaning up a stale
   bundle-path `origin` remote was deleting every non-default branch along
   with it (fixed by materializing branches locally first).
+
+- **Recipe**: [`moor recipe`](docs/decisions/0005-recipe.md) drives
+  keel's spec/gate/plan/gate/run pipeline from a loosely-described
+  outcome, stopping for human approval at the same checkpoints keel
+  already defines. Verified end-to-end on a real spec, gates failing and
+  self-correcting for real (twice, on genuinely different problems each
+  time) along the way — see [docs/examples/recipe](docs/examples/recipe).
+  Found and fixed three real bugs building it: a concrete goal
+  description reliably makes Claude Code implement the thing instead of
+  writing a spec about it, fixed structurally with `--allowedTools`
+  rather than prompt wording; `--allowedTools <tools...>` is variadic and
+  swallows the prompt itself if the prompt comes after it; and keel's
+  hard refusals (e.g. "already exists") print to stderr while gate
+  results print to stdout, which `cli/src/proc.rs`'s stdout-only
+  `run_capture` was silently dropping — fixed by adding
+  `run_capture_combined` alongside it, not changing its existing callers.

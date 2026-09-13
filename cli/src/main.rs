@@ -89,6 +89,18 @@ enum Command {
     /// `moor up`/`new`.
     #[command(subcommand)]
     Secrets(SecretsCommand),
+    /// Drive keel's spec -> gate -> plan -> gate -> run -> gate pipeline
+    /// from a loosely-described recipe file, stopping whenever a stage
+    /// needs a human decision (spec/plan/merge approval, or a gate that
+    /// still fails after retrying). Re-run the same command to continue
+    /// once you've approved or fixed things by hand — see
+    /// docs/decisions/0005-recipe.md.
+    Recipe {
+        name: String,
+        /// Path to the recipe file (YAML front matter — slug, scope —
+        /// followed by a free-text description of the desired outcome).
+        file: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -137,6 +149,7 @@ fn main() {
         Command::Secrets(SecretsCommand::Status { project }) => {
             commands::secrets_status::run(&project)
         }
+        Command::Recipe { name, file } => commands::recipe::run(&name, &file),
     };
 
     if let Err(e) = result {
