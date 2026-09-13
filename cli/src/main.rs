@@ -101,6 +101,21 @@ enum Command {
         /// followed by a free-text description of the desired outcome).
         file: PathBuf,
     },
+    /// Show (or follow) a running `moor recipe`'s progress — stage
+    /// transitions, gate attempts, pauses for approval — from the same
+    /// tamper-evident audit chain `moor audit` reads, so you can check
+    /// where it's at from a different terminal than the one driving it.
+    /// Not deep detail: for full command output, see `moor audit`.
+    Logs {
+        name: String,
+        /// Keep watching for new events instead of exiting after printing
+        /// what's there so far.
+        #[arg(short, long)]
+        follow: bool,
+        /// How many of the most recent events to print before following.
+        #[arg(short = 'n', long, default_value_t = 20)]
+        lines: usize,
+    },
 }
 
 #[derive(Subcommand)]
@@ -150,6 +165,11 @@ fn main() {
             commands::secrets_status::run(&project)
         }
         Command::Recipe { name, file } => commands::recipe::run(&name, &file),
+        Command::Logs {
+            name,
+            follow,
+            lines,
+        } => commands::logs::run(&name, follow, lines),
     };
 
     if let Err(e) = result {

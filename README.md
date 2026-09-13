@@ -27,7 +27,10 @@ for why this was `isolator` and is now `moor`,
 [docs/decisions/0005-recipe.md](docs/decisions/0005-recipe.md) for
 `moor recipe` — driving keel's spec/gate/plan/gate/run pipeline from a
 loosely-described outcome, stopping for human approval at the same
-checkpoints keel already defines — and
+checkpoints keel already defines —
+[docs/decisions/0006-recipe-logs.md](docs/decisions/0006-recipe-logs.md)
+for `moor logs` — a live, timestamped status view of a running recipe
+from any terminal, not just the one driving it — and
 [docs/examples/ascii-banner](docs/examples/ascii-banner) for a small
 utility built end to end by a real Claude Code agent running inside a
 sandbox — including two real bugs that run found and fixed, and the
@@ -135,6 +138,29 @@ so it stops and hands the evidence to a human instead. See
 [ADR-0005](docs/decisions/0005-recipe.md) for the full design, and
 [docs/examples/recipe](docs/examples/recipe) for a real run's output —
 including two real bugs this exercise found, with fixes.
+
+Since a step like `keel run` can take a while and a recipe's own
+progress narration used to only go to the terminal that launched it,
+`moor logs <name> [--follow]` reads the same tamper-evident audit chain
+and shows just the critical events — stage transitions, gate attempts,
+pauses for approval — from any terminal, live:
+
+```bash
+moor logs my-app --follow
+```
+
+```
+[17:31:07] [logs-verify] stage: spec
+[17:31:07] [logs-verify] gate attempt 1/4: fail
+[17:31:14] [logs-verify] gate attempt 2/4: fail
+[17:31:25] [logs-verify] gate attempt 3/4: pass
+[17:31:25] [logs-verify] stage: spec_approval
+[17:31:25] [logs-verify] PAUSED — waiting on: spec_approval
+```
+
+See [ADR-0006](docs/decisions/0006-recipe-logs.md) — verified live,
+watching a second terminal pick up real stage transitions and gate
+failures within half a second of a real recipe run producing them.
 
 ## Layout
 
@@ -439,3 +465,10 @@ below):
   results print to stdout, which `cli/src/proc.rs`'s stdout-only
   `run_capture` was silently dropping — fixed by adding
   `run_capture_combined` alongside it, not changing its existing callers.
+
+- **Recipe logs**: [`moor logs`](docs/decisions/0006-recipe-logs.md)
+  shows (or follows) a running recipe's stage transitions and gate
+  attempts from any terminal, reading the same audit chain `moor audit`
+  already writes rather than a second logging mechanism. Verified live:
+  a `--follow` in one terminal picked up every stage transition and
+  gate pass/fail from a real recipe run in another, in real time.

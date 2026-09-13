@@ -1,6 +1,7 @@
 use crate::{audit, manifest::Manifest, paths, proc};
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use serde_json::json;
 use std::path::Path;
 
 const DEFAULT_MAX_GATE_RETRIES: u32 = 3;
@@ -77,6 +78,23 @@ struct NextReport {
     specs: Vec<NextSpec>,
 }
 
+/// Append a short, structured "what's happening" entry to the project's
+/// existing audit chain — reusing that mechanism rather than inventing a
+/// second logging path, so `moor logs` has one durable, tamper-evident
+/// place to read from regardless of which terminal (or whether any
+/// terminal at all) is still attached to the running recipe. Deliberately
+/// small fields only (slug, stage, attempt counters) — never captured
+/// command output, which can be large and is already in the "recipe"
+/// exec entries this same chain holds.
+fn log_event(name: &str, event: &str, mut data: serde_json::Value) -> Result<()> {
+    if let Some(obj) = data.as_object_mut() {
+        obj.insert("event".to_string(), json!(event));
+    }
+    let path = paths::chain_log_path(name)?;
+    audit::append_chained(&path, "recipe-event", data)?;
+    Ok(())
+}
+
 fn exec_capture(name: &str, m: &Manifest, argv: &[String]) -> Result<(bool, String)> {
     let container = m.sandbox_container();
     let mut args: Vec<&str> = vec!["exec", &container];
@@ -147,6 +165,11 @@ fn drive_gate(
     for attempt in 0..=max_retries {
         let (ok, out) = exec_capture(name, m, gate_argv)?;
         println!("{out}");
+        log_event(
+            name,
+            "gate-attempt",
+            json!({"slug": slug, "gate": gate_argv, "attempt": attempt + 1, "max": max_retries + 1, "result": if ok { "pass" } else { "fail" }}),
+        )?;
         if ok {
             return Ok(true);
         }
@@ -189,6 +212,7 @@ pub fn run(name: &str, recipe_path: &Path) -> Result<()> {
         .unwrap_or_else(|| slug.replace('-', " "));
 
     println!("==> recipe '{slug}' for project '{name}'");
+    log_event(name, "recipe-start", json!({"slug": slug}))?;
 
     let mut new_argv = vec![
         "keel".into(),
@@ -218,7 +242,11 @@ pub fn run(name: &str, recipe_path: &Path) -> Result<()> {
     }
     if freshly_created {
         println!("==> scaffolded .keel/specs/{slug}/ — authoring the spec now");
+        log_event(name, "spec-scaffolded", json!({"slug": slug}))?;
         author_spec(name, &m, &slug, &recipe.description)?;
+        log_event(name, "spec-authored", json!({"slug": slug}))?;
+    } else {
+        log_event(name, "spec-resumed", json!({"slug": slug}))?;
     }
 
     let mut run_attempts = 0u32;
@@ -230,16 +258,27 @@ pub fn run(name: &str, recipe_path: &Path) -> Result<()> {
         };
         if spec.complete {
             println!("==> '{slug}' is complete.");
+            log_event(name, "complete", json!({"slug": slug}))?;
             return Ok(());
         }
 
         println!("==> [{slug}] stage: {}  next: {}", spec.stage, spec.command);
+        log_event(
+            name,
+            "stage",
+            json!({"slug": slug, "stage": spec.stage, "command": spec.command}),
+        )?;
 
         if spec.stage.contains("approval") {
             println!(
                 "\nPAUSED for human approval. Review the change, then run:\n\n    moor run {name} -- {}\n\n...and re-run this recipe to continue.",
                 spec.command
             );
+            log_event(
+                name,
+                "paused-for-approval",
+                json!({"slug": slug, "stage": spec.stage}),
+            )?;
             return Ok(());
         }
 
@@ -252,6 +291,11 @@ pub fn run(name: &str, recipe_path: &Path) -> Result<()> {
         match head {
             (Some("keel"), Some("gate")) => {
                 if !drive_gate(name, &m, &argv, &slug, recipe.front.max_gate_retries)? {
+                    log_event(
+                        name,
+                        "failed",
+                        json!({"slug": slug, "reason": "gate kept failing"}),
+                    )?;
                     anyhow::bail!(
                         "gate kept failing after {} attempt(s) — see .keel/specs/{slug}/gates/ for evidence; fix by hand, then re-run this recipe",
                         recipe.front.max_gate_retries + 1
@@ -260,7 +304,17 @@ pub fn run(name: &str, recipe_path: &Path) -> Result<()> {
             }
             (Some("keel"), Some("run")) => {
                 run_attempts += 1;
+                log_event(
+                    name,
+                    "run-attempt",
+                    json!({"slug": slug, "attempt": run_attempts, "max": recipe.front.max_run_attempts}),
+                )?;
                 if run_attempts > recipe.front.max_run_attempts {
+                    log_event(
+                        name,
+                        "failed",
+                        json!({"slug": slug, "reason": "keel run attempt cap reached"}),
+                    )?;
                     anyhow::bail!(
                         "`keel run` still hasn't reached a human checkpoint after {} attempt(s) — see .keel/runs/ for evidence; drive it by hand, then re-run this recipe",
                         recipe.front.max_run_attempts
@@ -281,6 +335,11 @@ pub fn run(name: &str, recipe_path: &Path) -> Result<()> {
                 let (ok, out) = exec_capture(name, &m, &argv)?;
                 println!("{out}");
                 if !ok {
+                    log_event(
+                        name,
+                        "failed",
+                        json!({"slug": slug, "reason": format!("`{}` failed", spec.command)}),
+                    )?;
                     anyhow::bail!("`{}` failed — see output above", spec.command);
                 }
             }

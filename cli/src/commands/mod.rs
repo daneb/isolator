@@ -1,6 +1,7 @@
 pub mod audit_cmd;
 pub mod down;
 pub mod import_cmd;
+pub mod logs;
 pub mod new_cmd;
 pub mod recipe;
 pub mod run_cmd;
