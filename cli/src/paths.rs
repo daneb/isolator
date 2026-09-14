@@ -40,6 +40,37 @@ pub fn ensure_project_dirs(name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Where `moor use` records the sticky default project, so commands
+/// like `moor keel`/`moor view` don't need `--project` spelled out on
+/// every call just because more than one project happens to exist.
+pub fn current_project_path() -> Result<PathBuf> {
+    Ok(moor_home()?.join("current"))
+}
+
+pub fn read_current_project() -> Result<Option<String>> {
+    let path = current_project_path()?;
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => {
+            let name = contents.trim();
+            Ok(if name.is_empty() {
+                None
+            } else {
+                Some(name.to_string())
+            })
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e).with_context(|| format!("reading {}", path.display())),
+    }
+}
+
+pub fn write_current_project(name: &str) -> Result<()> {
+    let path = current_project_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&path, name).with_context(|| format!("writing {}", path.display()))
+}
+
 pub fn all_project_names() -> Result<Vec<String>> {
     let projects_dir = moor_home()?.join("projects");
     if !projects_dir.exists() {

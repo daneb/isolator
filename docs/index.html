@@ -400,6 +400,15 @@
           history via a one-shot <code>git bundle</code> — never a bind mount —
           and preserves an existing GitHub remote automatically.</p>
       </div>
+      <div class="card">
+        <div class="icon">⚡</div>
+        <h3>Keel shortcuts, no boilerplate</h3>
+        <p><code>moor keel &lt;args&gt;</code> and <code>moor view &lt;slug&gt;
+          spec|plan|tasks</code> drop the <code>run &lt;project&gt; --</code>
+          you'd otherwise repeat on every call. Project is inferred from
+          whichever sandbox is actually up, and the CLI always prints which
+          one it picked before it runs anything.</p>
+      </div>
     </div>
   </section>
 
@@ -481,7 +490,7 @@
     <p class="kicker">Proof, not vibes</p>
     <h2>Every claim on this page was tested against a real container</h2>
     <div class="proof-grid">
-      <div class="stat"><div class="n">59</div><div class="d">unit tests — hardening logic, redaction, the hash chain, name validation</div></div>
+      <div class="stat"><div class="n">84</div><div class="d">unit tests — hardening logic, redaction, the hash chain, name validation</div></div>
       <div class="stat"><div class="n">8/8</div><div class="d">static hardening checks pass on a live container, every run</div></div>
       <div class="stat"><div class="n">3/3</div><div class="d">active breakout probes fail the way they're supposed to</div></div>
       <div class="stat"><div class="n">1</div><div class="d">real private GitHub repo, shipped end-to-end through the pipeline</div></div>
@@ -508,7 +517,8 @@
         <div class="l"><span class="prompt">$</span> moor new my-app --github --image moor/node:latest</div>
         <div class="l"><span class="prompt">$</span> moor secrets set my-app ANTHROPIC_API_KEY</div>
         <div class="l"><span class="prompt">$</span> moor shell my-app</div>
-        <div class="l"><span class="prompt">$</span> moor run my-app -- keel run my-spec</div>
+        <div class="l"><span class="prompt">$</span> moor keel run my-spec</div>
+        <div class="l out">==&gt; project: my-app (only sandbox currently up)</div>
         <div class="l"><span class="prompt">$</span> moor audit my-app --verify</div>
         <div class="l ok">chain OK — no tampering detected.</div>
       </div>

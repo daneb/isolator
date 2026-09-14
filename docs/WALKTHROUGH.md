@@ -49,7 +49,10 @@ and this works cleanly end to end.
 ## 2. Give the agent instructions
 
 Everything from here happens inside the sandbox, via `moor run
-<project> -- <cmd>` or an interactive `moor shell <project>`. Set
+<project> -- <cmd>` or an interactive `moor shell <project>`. This
+walkthrough spells out `-- keel` in full for clarity, but day to day
+`moor keel <args...>` is shorter for the same thing — it figures out
+which project you mean on its own (see the README). Set
 `[verify]` in `.keel/keel.toml` (the placeholder keel scaffolds is empty
 — G2 blocks without it):
 

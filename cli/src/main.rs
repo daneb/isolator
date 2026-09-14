@@ -64,6 +64,30 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         cmd: Vec<String>,
     },
+    /// Run `keel` inside a project's sandbox — sugar for
+    /// `moor run <project> -- keel <args...>`. Project defaults to
+    /// whatever `moor use` last set (or the one project you have, if
+    /// there's only one); pass `--project` to override.
+    Keel {
+        #[arg(short = 'p', long = "project")]
+        project: Option<String>,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Print one of keel's spec-produced markdown artifacts (spec.md,
+    /// plan.md, tasks.md) for a given spec slug, lightly highlighted.
+    /// Project defaults the same way `moor keel` does.
+    View {
+        #[arg(short = 'p', long = "project")]
+        project: Option<String>,
+        /// The spec slug, e.g. `blast-radius`.
+        slug: String,
+        /// spec | plan | tasks
+        artifact: String,
+    },
+    /// Set the default project `moor keel`/`moor view` (and their
+    /// `--project`-taking siblings) use when it's omitted.
+    Use { name: String },
     /// List all projects and their container status.
     Status,
     /// Show the host-side audit trail for a project (folds in new egress
@@ -150,6 +174,15 @@ fn main() {
         Command::Down { name } => commands::down::run(&name),
         Command::Shell { name } => commands::shell::run(&name),
         Command::Run { name, cmd } => commands::run_cmd::run(&name, &cmd),
+        Command::Keel { project, args } => commands::resolve_project_announced(project)
+            .and_then(|name| commands::keel_cmd::run(&name, &args)),
+        Command::View {
+            project,
+            slug,
+            artifact,
+        } => commands::resolve_project_announced(project)
+            .and_then(|name| commands::view::run(&name, &slug, &artifact)),
+        Command::Use { name } => commands::use_cmd::run(&name),
         Command::Status => commands::status::run(),
         Command::Audit {
             name,

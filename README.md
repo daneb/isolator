@@ -66,6 +66,23 @@ moor import keel --from ~/Repos/keel
 moor shell my-app
 moor run my-app -- keel status
 
+# keel ships in every sandbox, so once a project is up, `moor keel <args>`
+# runs it there directly — no need to name the project again
+moor keel status
+moor keel gate g1 greet-name
+
+# read a spec's plan/spec/tasks markdown without opening a shell
+moor view greet-name tasks
+
+# `moor keel`/`moor view` figure out which project you mean the same way:
+# an explicit --project flag, then `moor use <name>` if you've set one,
+# then whichever project's sandbox is actually up — only if none of those
+# resolve to exactly one project do they ask you to disambiguate. Either
+# way, they always print which project they picked first, e.g.:
+#   ==> project: my-app (only sandbox currently up)
+# so a stale `moor use` default can never silently touch the wrong
+# container without you noticing.
+
 # check the sandbox is actually locked down the way it should be
 moor selftest my-app
 
@@ -310,14 +327,18 @@ not separate from it:
 
 ## Testing
 
-- `cd cli && cargo test` — 59 unit tests: selftest's hardening evaluator
+- `cd cli && cargo test` — 84 unit tests: selftest's hardening evaluator
   (fed synthetic `docker inspect` JSON, including fail-safe-on-missing-data
   cases), manifest validation and round-tripping, compose template
   rendering, the tinyproxy access-log parser, the audit hash chain
   (append/verify, plus deliberately editing, deleting, reordering, and
   forging entries to confirm `--verify` catches each one), Keychain
-  service-name scoping, and `moor import`'s image auto-detection and
-  GitHub-URL parsing.
+  service-name scoping, `moor import`'s image auto-detection and
+  GitHub-URL parsing, `moor keel`/`moor view`'s project-resolution
+  precedence (explicit flag, sticky `moor use` default, the one sandbox
+  that's up, ambiguity errors), `moor keel`'s argv building, `moor use`'s
+  known-project validation, and `moor view`'s artifact-name mapping and
+  markdown highlighting.
 - `./tests/e2e.sh` — end-to-end against real Docker containers: creates a
   throwaway project, runs `moor selftest`'s static checks and active
   breakout battery, confirms egress allow/deny against github.com and
