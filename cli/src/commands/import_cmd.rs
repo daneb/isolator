@@ -99,6 +99,9 @@ pub fn run(name: &str, from: &Path, image: Option<String>, github: bool) -> Resu
     super::compose_up(name)?;
 
     import_history(name, &m, &from, existing_remote.as_deref())?;
+    // `compose_up` tried this before the import above created a repo —
+    // retry now that one actually exists.
+    super::sync_git_identity(&m);
 
     println!("==> checking for existing keel configuration");
     let (status, _) = proc::run_capture(

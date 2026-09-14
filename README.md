@@ -30,7 +30,10 @@ loosely-described outcome, stopping for human approval at the same
 checkpoints keel already defines —
 [docs/decisions/0006-recipe-logs.md](docs/decisions/0006-recipe-logs.md)
 for `moor logs` — a live, timestamped status view of a running recipe
-from any terminal, not just the one driving it — and
+from any terminal, not just the one driving it —
+[docs/decisions/0007-git-identity.md](docs/decisions/0007-git-identity.md)
+for why the sandbox's git identity is synced from the host's, so
+`keel approve` records a real name instead of "unknown" — and
 [docs/examples/ascii-banner](docs/examples/ascii-banner) for a small
 utility built end to end by a real Claude Code agent running inside a
 sandbox — including two real bugs that run found and fixed, and the
@@ -472,3 +475,11 @@ below):
   already writes rather than a second logging mechanism. Verified live:
   a `--follow` in one terminal picked up every stage transition and
   gate pass/fail from a real recipe run in another, in real time.
+
+- **Git identity**: [`moor up`/`new`/`import`](docs/decisions/0007-git-identity.md)
+  now sync the sandbox's git identity from the host's own `git config`
+  — traced `keel approve`'s "unknown" straight to keel's own source
+  (`git config user.name`, then `$USER`, then "unknown"; the sandbox had
+  neither set). Verified live against the real `keel` project:
+  `keel approve` went from recording "unknown" to recording "Dane
+  Balia".

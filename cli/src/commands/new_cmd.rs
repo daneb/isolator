@@ -80,6 +80,11 @@ pub fn run(name: &str, image: &str, github: bool) -> Result<()> {
         Err(e) => println!("note: could not run `keel init` automatically: {e}"),
     }
 
+    // The container's git config was still unset when `compose_up`
+    // tried this earlier (no repo existed yet) — the clone/`keel init`
+    // above made one, so it's worth retrying now.
+    super::sync_git_identity(&m);
+
     println!(
         "\n'{name}' is up. Manifest: {}\nNext: moor shell {name}",
         paths::manifest_path(name)?.display()

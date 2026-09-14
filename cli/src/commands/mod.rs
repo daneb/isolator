@@ -63,7 +63,35 @@ pub fn compose_up(name: &str) -> Result<()> {
         &["compose", "-p", name, "-f", &compose_path_str, "up", "-d"],
     )?;
     crate::proc::require_success("docker compose up", status)?;
+    sync_git_identity(&m);
     Ok(())
+}
+
+/// Give the sandbox's own git identity a real name, sourced from the
+/// *host's* own `git config`, instead of leaving it unset and letting
+/// keel's own identity lookup fall all the way through to "unknown" in
+/// things like `keel approve`'s audit record (see
+/// docs/decisions/0007-git-identity.md). Always local (never
+/// `--global`): the container's rootfs is read-only outside its mounted
+/// volumes, so only the repo-local `.git/config` — on the writable
+/// workspace volume — can actually be written to. Best-effort and
+/// silent: does nothing if there's no repo yet (called too early, before
+/// `keel init`/clone/import has created one — callers that know a repo
+/// now exists call this again afterward) or if the host itself has no
+/// git identity configured.
+pub fn sync_git_identity(m: &Manifest) {
+    let container = m.sandbox_container();
+    for key in ["user.name", "user.email"] {
+        if let Ok((status, out)) = crate::proc::run_capture("git", &["config", "--get", key]) {
+            let value = out.trim();
+            if status.success() && !value.is_empty() {
+                let _ = crate::proc::run_capture(
+                    "docker",
+                    &["exec", &container, "git", "config", key, value],
+                );
+            }
+        }
+    }
 }
 
 pub fn compose_down(name: &str) -> Result<()> {
